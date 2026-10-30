@@ -33,7 +33,10 @@ jobs:
 
     - name: Build All Flutter Apps Found
       run: |
-        mkdir -p collected_apks
+        # वर्कस्पेस रूट का एब्सोल्यूट पाथ सेव कर रहे हैं
+        ROOT_DIR=$PWD
+        mkdir -p "$ROOT_DIR/collected_apks"
+        
         find extracted_apps -name "pubspec.yaml" | while read pubspec; do
           APP_DIR=$(dirname "$pubspec")
           echo "=============================================="
@@ -43,13 +46,19 @@ jobs:
           flutter pub get
           flutter build apk --release
           
-          # हर बनने वाले APK को कलेक्टेड फोल्डर में कॉपी कर रहे हैं
-          find build/app/outputs/flutter-apk/ -name "*.apk" -exec cp {} ../../../collected_apks/ \;
-          cd - > /dev/null
+          # सीधे एब्सोल्यूट पाथ का इस्तेमाल करके APK कॉपी करेंगे
+          if ls build/app/outputs/flutter-apk/*.apk 1> /dev/null 2>&1; then
+            cp build/app/outputs/flutter-apk/*.apk "$ROOT_DIR/collected_apks/"
+            echo "APK successfully copied!"
+          else
+            echo "Warning: APK not found for this app."
+          fi
+          
+          cd "$ROOT_DIR"
         done
         
-        echo "Checking collected APKs:"
-        ls -la collected_apks
+        echo "Final check of collected APKs:"
+        ls -la "$ROOT_DIR/collected_apks"
 
     - name: Create Release and Upload APKs
       uses: ncipollo/release-action@v1
