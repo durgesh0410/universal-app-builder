@@ -18,8 +18,8 @@ jobs:
       run: |
         echo "Unzipping Generated_Apps.zip..."
         unzip -q Generated_Apps.zip -d extracted_apps
-        echo "Listing contents of extracted_apps:"
-        ls -la extracted_apps
+        echo "Listing all pubspec.yaml found:"
+        find extracted_apps -name "pubspec.yaml"
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -45,6 +45,11 @@ jobs:
           flutter build apk --release
           cd - > /dev/null
         done
+
+    - name: List built APKs for verification
+      run: |
+        echo "Searching for built APKs..."
+        find extracted_apps -name "*.apk"
 
     - name: Create Release and Upload APKs
       uses: ncipollo/release-action@v1
