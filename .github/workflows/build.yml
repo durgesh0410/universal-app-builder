@@ -11,6 +11,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Unzip Generated Apps
+      run: |
+        unzip Generated_Apps.zip -d extracted_apps
+        cd extracted_apps/Generated_Apps/1_Sudoku_Classic
+
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
@@ -24,15 +29,19 @@ jobs:
         channel: 'stable'
 
     - name: Install Dependencies
-      run: flutter pub get
+      run: |
+        cd extracted_apps/Generated_Apps/1_Sudoku_Classic
+        flutter pub get
 
     - name: Build APK
-      run: flutter build apk --release
+      run: |
+        cd extracted_apps/Generated_Apps/1_Sudoku_Classic
+        flutter build apk --release
 
     - name: Create Release and Upload APK
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "build/app/outputs/flutter-apk/app-release.apk"
+        artifacts: "extracted_apps/Generated_Apps/1_Sudoku_Classic/build/app/outputs/flutter-apk/app-release.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Release APK v1.0.${{ github.run_number }}"
         body: "Automated Flutter APK build generated via GitHub Actions."
