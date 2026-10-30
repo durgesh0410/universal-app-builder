@@ -18,8 +18,6 @@ jobs:
       run: |
         echo "Unzipping Generated_Apps.zip..."
         unzip -q Generated_Apps.zip -d extracted_apps
-        echo "Listing all pubspec.yaml found:"
-        find extracted_apps -name "pubspec.yaml"
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -35,6 +33,7 @@ jobs:
 
     - name: Build All Flutter Apps Found
       run: |
+        mkdir -p collected_apks
         find extracted_apps -name "pubspec.yaml" | while read pubspec; do
           APP_DIR=$(dirname "$pubspec")
           echo "=============================================="
@@ -43,21 +42,22 @@ jobs:
           cd "$APP_DIR"
           flutter pub get
           flutter build apk --release
+          
+          # हर बनने वाले APK को कलेक्टेड फोल्डर में कॉपी कर रहे हैं
+          find build/app/outputs/flutter-apk/ -name "*.apk" -exec cp {} ../../../collected_apks/ \;
           cd - > /dev/null
         done
-
-    - name: List built APKs for verification
-      run: |
-        echo "Searching for built APKs..."
-        find extracted_apps -name "*.apk"
+        
+        echo "Checking collected APKs:"
+        ls -la collected_apks
 
     - name: Create Release and Upload APKs
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "extracted_apps/**/build/app/outputs/flutter-apk/*.apk"
+        artifacts: "collected_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Release APKs v1.0.${{ github.run_number }}"
-        body: "Automated multi-app Flutter APK build generated via GitHub Actions."
+        body: "Automated multi-app Flutter APK build generated successfully via GitHub Actions."
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
