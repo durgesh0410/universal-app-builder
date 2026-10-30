@@ -13,9 +13,10 @@ jobs:
 
     - name: Unzip Generated Apps
       run: |
-        unzip Generated_Apps.zip -d extracted_apps
-        echo "=== Checking folder contents ==="
-        find extracted_apps -maxdepth 4
+        echo "Unzipping Generated_Apps.zip..."
+        unzip -q Generated_Apps.zip -d extracted_apps
+        echo "Listing contents of extracted_apps:"
+        ls -la extracted_apps
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -29,20 +30,25 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Build APK
+    - name: Build All Flutter Apps Found
       run: |
-        # यहाँ हम उस फोल्डर में जाएंगे जहाँ असल में pubspec.yaml मौजूद है
-        APP_DIR=$(find extracted_apps -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
-        echo "Found Flutter project at: $APP_DIR"
-        cd "$APP_DIR"
-        flutter pub get
-        flutter build apk --release
+        # Sabhi pubspec.yaml file ko dhoond kar ek-ek karke APK banayega
+        find extracted_apps -name "pubspec.yaml" | while read pubspec; do
+          APP_DIR=$(dirname "$pubspec")
+          echo "=============================================="
+          echo "Building Flutter app in directory: $APP_DIR"
+          echo "=============================================="
+          cd "$APP_DIR"
+          flutter pub get
+          flutter build apk --release
+          cd - > /dev/null
+        done
 
-    - name: Create Release and Upload APK
+    - name: Create Release and Upload APKs
       uses: ncipollo/release-action@v1
       with:
         artifacts: "**/build/app/outputs/flutter-apk/app-release.apk"
         tag: v1.0.${{ github.run_number }}
-        name: "Release APK v1.0.${{ github.run_number }}"
-        body: "Automated Flutter APK build generated via GitHub Actions."
+        name: "Release APKs v1.0.${{ github.run_number }}"
+        body: "Automated multi-app Flutter APK build generated via GitHub Actions."
         token: ${{ secrets.GITHUB_TOKEN }}
