@@ -18,6 +18,8 @@ jobs:
       run: |
         echo "Unzipping Generated_Apps.zip..."
         unzip -q Generated_Apps.zip -d extracted_apps
+        echo "Checking extracted folders:"
+        ls -la extracted_apps
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -33,31 +35,33 @@ jobs:
 
     - name: Build All Flutter Apps Found
       run: |
-        # वर्कस्पेस रूट का एब्सोल्यूट पाथ सेव कर रहे हैं
         ROOT_DIR=$PWD
         mkdir -p "$ROOT_DIR/collected_apks"
         
+        # सभी pubspec.yaml ढूंढकर एक-एक करके बिल्ड करेंगे
         find extracted_apps -name "pubspec.yaml" | while read pubspec; do
           APP_DIR=$(dirname "$pubspec")
           echo "=============================================="
           echo "Building Flutter app in directory: $APP_DIR"
           echo "=============================================="
           cd "$APP_DIR"
+          
           flutter pub get
           flutter build apk --release
           
-          # सीधे एब्सोल्यूट पाथ का इस्तेमाल करके APK कॉपी करेंगे
-          if ls build/app/outputs/flutter-apk/*.apk 1> /dev/null 2>&1; then
-            cp build/app/outputs/flutter-apk/*.apk "$ROOT_DIR/collected_apks/"
-            echo "APK successfully copied!"
+          # चेक करेंगे कि APK बना है या नहीं
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk "$ROOT_DIR/collected_apks/app-release-${RANDOM}.apk"
+            echo "SUCCESS: APK copied to collected_apks"
           else
-            echo "Warning: APK not found for this app."
+            echo "ERROR: APK build failed for $APP_DIR"
+            exit 1
           fi
           
           cd "$ROOT_DIR"
         done
         
-        echo "Final check of collected APKs:"
+        echo "Final files in collected_apks:"
         ls -la "$ROOT_DIR/collected_apks"
 
     - name: Create Release and Upload APKs
