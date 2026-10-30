@@ -49,8 +49,10 @@ jobs:
     - name: Create Release and Upload APKs
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "**/build/app/outputs/flutter-apk/app-release.apk"
+        artifacts: "extracted_apps/**/build/app/outputs/flutter-apk/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Release APKs v1.0.${{ github.run_number }}"
         body: "Automated multi-app Flutter APK build generated via GitHub Actions."
         token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        replacesArtifacts: true
