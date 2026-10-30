@@ -14,7 +14,8 @@ jobs:
     - name: Unzip Generated Apps
       run: |
         unzip Generated_Apps.zip -d extracted_apps
-        cd extracted_apps/sdcard/Download/Generated_Apps/1_Sudoku_Classic
+        echo "=== Checking folder contents ==="
+        find extracted_apps -maxdepth 4
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -28,20 +29,19 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Install Dependencies
-      run: |
-        cd extracted_apps/sdcard/Download/Generated_Apps/1_Sudoku_Classic
-        flutter pub get
-
     - name: Build APK
       run: |
-        cd extracted_apps/sdcard/Download/Generated_Apps/1_Sudoku_Classic
+        # यहाँ हम उस फोल्डर में जाएंगे जहाँ असल में pubspec.yaml मौजूद है
+        APP_DIR=$(find extracted_apps -name "pubspec.yaml" -exec dirname {} \; | head -n 1)
+        echo "Found Flutter project at: $APP_DIR"
+        cd "$APP_DIR"
+        flutter pub get
         flutter build apk --release
 
     - name: Create Release and Upload APK
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "extracted_apps/sdcard/Download/Generated_Apps/1_Sudoku_Classic/build/app/outputs/flutter-apk/app-release.apk"
+        artifacts: "**/build/app/outputs/flutter-apk/app-release.apk"
         tag: v1.0.${{ github.run_number }}
         name: "Release APK v1.0.${{ github.run_number }}"
         body: "Automated Flutter APK build generated via GitHub Actions."
