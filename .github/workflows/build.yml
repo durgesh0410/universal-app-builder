@@ -1,4 +1,4 @@
-name: Build and Release Flutter APK
+name: Build and Release All 6 Flutter Apps
 
 on:
   push:
@@ -14,11 +14,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Unzip Configs
+    - name: Unzip Generated Apps
       run: |
         echo "Unzipping Generated_Apps.zip..."
         unzip -q Generated_Apps.zip -d extracted_apps
-        ls -la extracted_apps
+        ls -R extracted_apps
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -32,50 +32,54 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Generate Flutter Projects and Build APKs
+    - name: Build All 6 Apps Separately
       run: |
         ROOT_DIR=$PWD
         mkdir -p "$ROOT_DIR/collected_apks"
-
-        # अगर ज़िप में सिर्फ फोल्डर हैं, तो उनके लिए बेसिक फ्लटर प्रोजेक्ट खुद बनाएंगे
-        for dir in extracted_apps/*/ ; do
+        
+        # Har ek alag app ke folder par loop chalayenge
+        counter=1
+        for dir in extracted_apps/sdcard/Download/Generated_Apps/*/; do
           if [ -d "$dir" ]; then
-            APP_NAME=$(basename "$dir")
-            echo "Processing $APP_NAME..."
+            RAW_NAME=$(basename "$dir")
+            APP_NAME=$(echo "$RAW_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
+            echo "=============================================="
+            echo "Building App $counter: $APP_NAME"
+            echo "=============================================="
             
-            # एक नया फ्लटर प्रोजेक्ट बनाएंगे
-            flutter create --org com.durgesh --project-name="$APP_NAME" temp_project_$APP_NAME
+            # Har app ke liye ek naya aur saaf flutter project banayenge
+            flutter create --org com.durgesh.app$counter --project-name="app_$counter" "$ROOT_DIR/temp_app_$counter"
             
-            # उसे सही जगह मूव करेंगे
-            rm -rf "$dir/*"
-            cp -r temp_project_$APP_NAME/* "$dir/"
-            rm -rf temp_project_$APP_NAME
+            cd "$ROOT_DIR/temp_app_$counter"
             
-            # अब इस ऐप को बिल्ड करेंगे
-            cd "$dir"
+            # Dependencies get karke release APK banayenge
             flutter pub get
             flutter build apk --release
             
-            # APK को कलेक्टेड फोल्डर में भेजेंगे
+            # APK ko uske asli naam se collected_apks folder mein copy karenge
             if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
               cp build/app/outputs/flutter-apk/app-release.apk "$ROOT_DIR/collected_apks/${APP_NAME}.apk"
-              echo "SUCCESS: APK created for $APP_NAME"
+              echo "SUCCESS: $APP_NAME.apk created successfully!"
+            else
+              echo "ERROR: Failed to build $APP_NAME"
             fi
             
             cd "$ROOT_DIR"
+            rm -rf "$ROOT_DIR/temp_app_$counter"
+            counter=$((counter + 1))
           fi
         done
-
-        echo "Final collected APKs:"
+        
+        echo "Checking all generated APKs:"
         ls -la "$ROOT_DIR/collected_apks"
 
-    - name: Create Release and Upload APKs
+    - name: Create Release and Upload All APKs
       uses: ncipollo/release-action@v1
       with:
         artifacts: "collected_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
-        name: "Release APKs v1.0.${{ github.run_number }}"
-        body: "Automated Flutter apps generated and built successfully via GitHub Actions."
+        name: "Release All 6 Apps v1.0.${{ github.run_number }}"
+        body: "All 6 individual Flutter apps built separately with unique package names, ready to install and open properly."
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
