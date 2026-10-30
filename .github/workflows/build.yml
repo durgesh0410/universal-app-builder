@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,7 +35,6 @@ jobs:
 
     - name: Build All Flutter Apps Found
       run: |
-        # Sabhi pubspec.yaml file ko dhoond kar ek-ek karke APK banayega
         find extracted_apps -name "pubspec.yaml" | while read pubspec; do
           APP_DIR=$(dirname "$pubspec")
           echo "=============================================="
