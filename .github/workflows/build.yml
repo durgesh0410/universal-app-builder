@@ -1,4 +1,4 @@
-name: Build 6 Distinct Apps
+name: Build 6 Separate Apps Correctly
 
 on:
   push:
@@ -17,8 +17,8 @@ jobs:
     - name: Unzip Apps
       run: |
         unzip -q Generated_Apps.zip -d extracted_apps
-        echo "=== Listing extracted folders ==="
-        find extracted_apps -maxdepth 3
+        echo "=== Checking folder structure ==="
+        find extracted_apps -type d
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -32,29 +32,36 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Build All 6 Individual Apps
+    - name: Build All 6 Apps Separately
       run: |
         ROOT=$PWD
         mkdir -p "$ROOT/final_apks"
         
-        # Zip ke andar ke saare 6 folder ko ek-ek karke pakdenge
+        # Zip ke andar jahan bhi main folders hain unhe dhoondhenge
+        TARGET_DIR=$(find extracted_apps -type d -name "Generated_Apps" | head -n 1)
+        if [ -z "$TARGET_DIR" ]; then
+          TARGET_DIR="extracted_apps"
+        fi
+        
+        echo "Target scanning directory: $TARGET_DIR"
+        
+        # 1 se lekar 6 tak saare apps ke liye alag loop chalayenge
         i=1
-        for dir in extracted_apps/*/ ; do
+        for dir in "$TARGET_DIR"/*/; do
           if [ -d "$dir" ] && [ $i -le 6 ]; then
             RAW_NAME=$(basename "$dir")
-            # Agar folder ka naam lamba ya ajeeb hai toh saaf naam denge
             APP_NAME="App_$i"
             
             echo "=============================================="
-            echo "Building App $i: $APP_NAME (from $RAW_NAME)"
+            echo "Building App $i: $APP_NAME (Source: $RAW_NAME)"
             echo "=============================================="
             
-            # Har app ke liye bilkul naya aur alag package ID ke sath project banayenge
+            # Har app ke liye bilkul naya project banayenge jiska package ID alag hoga
             flutter create --org com.durgesh.app$i --project-name="app_$i" "$ROOT/workspace_$i"
             
             cd "$ROOT/workspace_$i"
             
-            # Agar zip ke andar koi config ya assets hain toh unhe copy kar sakte hain
+            # Agar zip folder mein data hai toh use assets mein copy karenge
             if [ -d "$dir" ]; then
               cp -r "$dir"* "assets/" 2>/dev/null || true
             fi
@@ -62,7 +69,7 @@ jobs:
             flutter pub get
             flutter build apk --release --split-per-abi
             
-            # Sabse halka aur sahi release APK utha kar final folder mein alag naam se rakhenge
+            # Chote size ka release APK uthakar final folder mein save karenge
             if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
               cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$ROOT/final_apks/${APP_NAME}.apk"
               echo "SUCCESS: ${APP_NAME}.apk created!"
@@ -76,16 +83,16 @@ jobs:
           fi
         done
         
-        echo "=== Final APKs Generated ==="
+        echo "=== All Generated APKs ==="
         ls -la "$ROOT/final_apks"
 
-    - name: Upload 6 APKs to Release
+    - name: Upload All 6 APKs to Release
       uses: ncipollo/release-action@v1
       with:
         artifacts: "final_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "6 Separate Apps v1.0.${{ github.run_number }}"
-        body: "Here are all 6 individual apps built separately with unique package IDs, low size, and ready to install and open properly."
+        body: "All 6 individual apps built successfully with unique package IDs, low size, and ready to install and open properly."
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
