@@ -1,4 +1,4 @@
-name: Build and Release All Installable Apps
+name: Build Light APKs
 
 on:
   push:
@@ -14,9 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Unzip Generated Apps
+    - name: Unzip Apps
       run: |
-        echo "Unzipping Generated_Apps.zip..."
         unzip -q Generated_Apps.zip -d extracted_apps
 
     - name: Set up Java
@@ -31,62 +30,38 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Build Installable APKs for All Apps
+    - name: Build Light Release APKs
       run: |
-        ROOT_DIR=$PWD
-        mkdir -p "$ROOT_DIR/collected_apks"
+        ROOT=$PWD
+        mkdir -p "$ROOT/my_apks"
         
-        # Zip ke andar exact root path dhoondhenge
-        TARGET_PATH=$(find extracted_apps -type d -name "Generated_Apps" | head -n 1)
-        if [ -z "$TARGET_PATH" ]; then
-          TARGET_PATH="extracted_apps"
-        fi
-
-        counter=1
-        for dir in "$TARGET_PATH"/*/; do
-          if [ -d "$dir" ]; then
-            RAW_NAME=$(basename "$dir")
-            APP_NAME=$(echo "$RAW_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
-            
-            echo "=============================================="
-            echo "Creating & Building App $counter: $APP_NAME"
-            echo "=============================================="
-            
-            # Pure project structure generate karenge
-            flutter create --org "com.durgesh.app$counter" --project-name "app_$counter" "$ROOT_DIR/temp_app_$counter"
-            
-            # Agar folder ke andar JSON config hai toh use assets mein incorporate kar sakte hain
-            if [ -d "$dir" ]; then
-              cp -r "$dir"* "$ROOT_DIR/temp_app_$counter/assets/" 2>/dev/null || true
-            fi
-            
-            cd "$ROOT_DIR/temp_app_$counter"
-            flutter pub get
-            
-            # APK build without restriction
-            flutter build apk --debug
-            
-            if [ -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
-              cp build/app/outputs/flutter-apk/app-debug.apk "$ROOT_DIR/collected_apks/${APP_NAME}.apk"
-              echo "SUCCESS: $APP_NAME.apk generated and signed successfully!"
-            fi
-            
-            cd "$ROOT_DIR"
-            rm -rf "$ROOT_DIR/temp_app_$counter"
-            counter=$((counter + 1))
+        find extracted_apps -name "pubspec.yaml" | while read file; do
+          DIR=$(dirname "$file")
+          NAME=$(basename "$DIR")
+          
+          echo "Building light release for: $NAME"
+          cd "$DIR"
+          flutter pub get
+          
+          # split-per-abi से APK का साइज़ बहुत छोटा (कम MB का) बनता है
+          flutter build apk --release --split-per-abi
+          
+          # सबसे हल्की और सही release APK को कलेक्ट करेंगे
+          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$ROOT/my_apks/${NAME}.apk"
+          elif [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk "$ROOT/my_apks/${NAME}.apk"
           fi
+          
+          cd "$ROOT"
         done
-        
-        echo "Checking installable APKs:"
-        ls -la "$ROOT_DIR/collected_apks"
 
-    - name: Create Release and Upload APKs
+    - name: Upload to Release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "collected_apks/*.apk"
+        artifacts: "my_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
-        name: "Installable APKs v1.0.${{ github.run_number }}"
-        body: "All apps compiled with standard installable keys. Download and tap to install directly on Android."
+        name: "Light Apps v1.0.${{ github.run_number }}"
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
