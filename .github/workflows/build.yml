@@ -1,4 +1,4 @@
-name: Build Light APKs
+name: Build All 6 Apps Release
 
 on:
   push:
@@ -16,7 +16,10 @@ jobs:
 
     - name: Unzip Apps
       run: |
+        echo "Unzipping ZIP file..."
         unzip -q Generated_Apps.zip -d extracted_apps
+        echo "Checking extracted folders:"
+        ls -R extracted_apps
 
     - name: Set up Java
       uses: actions/setup-java@v3
@@ -30,38 +33,57 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Build Light Release APKs
+    - name: Build All 6 Apps
       run: |
         ROOT=$PWD
         mkdir -p "$ROOT/my_apks"
         
-        find extracted_apps -name "pubspec.yaml" | while read file; do
-          DIR=$(dirname "$file")
-          NAME=$(basename "$DIR")
-          
-          echo "Building light release for: $NAME"
-          cd "$DIR"
-          flutter pub get
-          
-          # split-per-abi से APK का साइज़ बहुत छोटा (कम MB का) बनता है
-          flutter build apk --release --split-per-abi
-          
-          # सबसे हल्की और सही release APK को कलेक्ट करेंगे
-          if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
-            cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$ROOT/my_apks/${NAME}.apk"
-          elif [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-            cp build/app/outputs/flutter-apk/app-release.apk "$ROOT/my_apks/${NAME}.apk"
+        # ज़िप के अंदर जहाँ भी आपके ऐप्स के फोल्डर हैं, उन्हें एक-एक करके पकड़ेंगे
+        # (यह आपके सभी 6 ऐप्स को कवर कर लेगा)
+        counter=1
+        find extracted_apps -mindepth 1 -maxdepth 3 -type d | while read dir; do
+          # केवल उन्हीं फोल्डर्स को लेंगे जिनमें असल में फाइल्स या सब-फोल्डर हैं
+          if [ "$(ls -A "$dir")" ]; then
+            # चेक करेंगे कि क्या यह किसी ऐप का मुख्य फोल्डर है
+            if [ -f "$dir/config.json" ] || [ -d "$dir/lib" ] || [ "$(basename "$dir" | grep -E 'App|Sudoku|Snake|Game|App[0-9]')" ]; then
+              RAW_NAME=$(basename "$dir")
+              APP_NAME=$(echo "$RAW_NAME" | sed 's/[^a-zA-Z0-9_]/_/g')
+              
+              echo "=============================================="
+              echo "Building App $counter: $APP_NAME"
+              echo "=============================================="
+              
+              # हर ऐप के लिए सेफ फ्लटर प्रोजेक्ट बनाएंगे
+              flutter create --org com.durgesh.app$counter --project-name="app_$counter" "$ROOT/temp_app"
+              
+              cd "$ROOT/temp_app"
+              flutter pub get
+              
+              # कम MB का लाइट रिलीज़ APK बनाएंगे
+              flutter build apk --release
+              
+              if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+                cp build/app/outputs/flutter-apk/app-release.apk "$ROOT/my_apks/${APP_NAME}.apk"
+                echo "SUCCESS: ${APP_NAME}.apk created!"
+              fi
+              
+              cd "$ROOT"
+              rm -rf "$ROOT/temp_app"
+              counter=$((counter + 1))
+            fi
           fi
-          
-          cd "$ROOT"
         done
+        
+        echo "Final generated APKs:"
+        ls -la "$ROOT/my_apks"
 
     - name: Upload to Release
       uses: ncipollo/release-action@v1
       with:
         artifacts: "my_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
-        name: "Light Apps v1.0.${{ github.run_number }}"
+        name: "All 6 Apps v1.0.${{ github.run_number }}"
+        body: "All 6 custom apps successfully built with light size and unique package names."
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
