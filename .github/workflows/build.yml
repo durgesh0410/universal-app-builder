@@ -1,4 +1,4 @@
-name: Build 6 Custom Apps Properly
+name: Build All 6 Custom Apps
 
 on:
   push:
@@ -14,12 +14,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Unzip Apps
-      run: |
-        unzip -q Generated_Apps.zip -d extracted_apps
-        echo "=== Checking extracted structure ==="
-        find extracted_apps -maxdepth 3
-
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
@@ -32,54 +26,45 @@ jobs:
         flutter-version: '3.16.x'
         channel: 'stable'
 
-    - name: Build All 6 Individual Apps With Custom Code
+    - name: Build Each App Separately
       run: |
         ROOT=$PWD
         mkdir -p "$ROOT/final_apks"
         
-        # Zip ke andar ke main folder ko dhoondhenge
-        TARGET_DIR=$(find extracted_apps -type d -name "Generated_Apps" | head -n 1)
-        if [ -z "$TARGET_DIR" ]; then
-          TARGET_DIR="extracted_apps"
-        fi
-        
-        echo "Target directory: $TARGET_DIR"
-        
+        # Repo ke andar jo 6 folders hain, un sabhi ki list banakar ek-ek karke build karenge
         i=1
-        for dir in "$TARGET_DIR"/*/; do
-          if [ -d "$dir" ] && [ $i -le 6 ]; then
+        for dir in */; do
+          # Sirf un folders ko lenge jo app ke folders hain (jaise 1_, 2_, App_)
+          if [ -d "$dir" ] && [[ "$dir" != "." ]] && [[ "$dir" != ".." ]] && [[ "$dir" != ".git" ]] && [[ "$dir" != ".github" ]] && [[ "$dir" != "final_apks" ]]; then
             RAW_NAME=$(basename "$dir")
-            APP_NAME="App_$i"
+            APP_NAME="App_${i}_${RAW_NAME}"
             
             echo "=============================================="
-            echo "Building App $i: $APP_NAME (Source folder: $RAW_NAME)"
+            echo "Building App $i: $RAW_NAME"
             echo "=============================================="
             
-            # 1. Naya flutter project banayenge alag package ID ke sath
+            # Har app ke liye ek naya flutter project banayenge jiska package ID bilkul alag hoga
             flutter create --org com.durgesh.app$i --project-name="app_$i" "$ROOT/workspace_$i"
             
             cd "$ROOT/workspace_$i"
             
-            # 2. SABSE KHAS: Agar aapke zip folder ke andar 'lib' ya asli code hai, toh use project ke lib mein copy karenge
-            if [ -d "$dir/lib" ]; then
+            # Aapke upload kiye gaye folder se asli code/files ko 'lib' mein copy karenge
+            if [ -d "$ROOT/$dir/lib" ]; then
               rm -rf lib/*
-              cp -r "$dir/lib/"* "lib/"
-              echo "Copied custom lib files successfully!"
-            elif [ "$(ls -A "$dir")" ]; then
-              # Agar andar direct files hain toh unhe bhi copy kar lenge
-              cp -r "$dir"* "lib/" 2>/dev/null || true
-              echo "Copied files into lib successfully!"
+              cp -r "$ROOT/$dir/lib/"* "lib/"
+            elif [ "$(ls -A "$ROOT/$dir")" ]; then
+              cp -r "$ROOT/$dir/"* "lib/" 2>/dev/null || true
             fi
             
-            # 3. Agar pubspec.yaml ya assets hain toh unhe bhi handle karenge
-            if [ -f "$dir/pubspec.yaml" ]; then
-              cp "$dir/pubspec.yaml" "pubspec.yaml"
+            # Agar wahan pubspec.yaml hai toh use replace karenge
+            if [ -f "$ROOT/$dir/pubspec.yaml" ]; then
+              cp "$ROOT/$dir/pubspec.yaml" "pubspec.yaml"
             fi
             
             flutter pub get
             flutter build apk --release --split-per-abi
             
-            # 4. Chhote size ka release APK uthakar final folder mein save karenge
+            # Chhote size ka release APK uthakar final folder mein save karenge
             if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
               cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$ROOT/final_apks/${APP_NAME}.apk"
               echo "SUCCESS: ${APP_NAME}.apk created!"
@@ -93,16 +78,16 @@ jobs:
           fi
         done
         
-        echo "=== Final APKs Generated ==="
+        echo "=== All Generated APKs ==="
         ls -la "$ROOT/final_apks"
 
-    - name: Upload All 6 APKs to Release
+    - name: Upload All APKs to Release
       uses: ncipollo/release-action@v1
       with:
         artifacts: "final_apks/*.apk"
         tag: v1.0.${{ github.run_number }}
         name: "6 Custom Apps v1.0.${{ github.run_number }}"
-        body: "All 6 individual apps built successfully using your custom generated code, with unique package IDs and low size."
+        body: "All 6 individual custom apps built successfully with unique package IDs, low file size, and ready to install."
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
