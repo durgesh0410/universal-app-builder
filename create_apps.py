@@ -22,14 +22,12 @@ def generate_apps():
         
         print(f"Cleaning and generating fresh app for: {app_title}")
         
-        # Remove old directory if exists to avoid cache/embedding conflict
         if os.path.exists(app_name):
             shutil.rmtree(app_name)
             
         lib_path = os.path.join(app_name, "lib")
         os.makedirs(lib_path, exist_ok=True)
         
-        # 1. AndroidManifest.xml path
         manifest_dir = os.path.join(app_name, "android", "app", "src", "main")
         os.makedirs(manifest_dir, exist_ok=True)
         
@@ -41,7 +39,6 @@ def generate_apps():
         android:name="${{applicationName}}"
         android:icon="@mipmap/ic_launcher">
         
-        <!-- Sample AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
@@ -72,7 +69,6 @@ def generate_apps():
         with open(manifest_path, "w") as f:
             f.write(manifest_code)
 
-        # 2. MainActivity.kt for Android v2 embedding (fixes the error permanently)
         kotlin_dir = os.path.join(app_name, "android", "app", "src", "main", "kotlin", "com", "example", app_name.lower())
         os.makedirs(kotlin_dir, exist_ok=True)
         
@@ -87,7 +83,6 @@ class MainActivity: FlutterActivity() {{
         with open(main_activity_path, "w") as f:
             f.write(main_activity_code)
 
-        # 3. Main Dart Game Code
         if app_type == "arrow":
             main_code = """import 'package:flutter/material.dart';
 import 'dart:math';
@@ -525,7 +520,6 @@ class _LudoMasterScreenState extends State<LudoMasterScreen> {
         with open(os.path.join(lib_path, "main.dart"), "w") as f:
             f.write(main_code)
             
-        # 4. pubspec.yaml setup
         pubspec_path = os.path.join(app_name, "pubspec.yaml")
         pubspec_code = f"""name: {app_name.lower()}
 description: Apps with AdMob integration.
