@@ -1,93 +1,47 @@
-name: Build All 6 Custom Apps
+name: Build Release APK on Tag
 
 on:
   push:
-    branches: [ main ]
-
-permissions:
-  contents: write
+    tags:
+      - 'v*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Java
-      uses: actions/setup-java@v3
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.16.x'
-        channel: 'stable'
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
 
-    - name: Build Each App Separately
-      run: |
-        ROOT=$PWD
-        mkdir -p "$ROOT/final_apks"
-        
-        # Repo ke andar jo 6 folders hain, un sabhi ki list banakar ek-ek karke build karenge
-        i=1
-        for dir in */; do
-          # Sirf un folders ko lenge jo app ke folders hain (jaise 1_, 2_, App_)
-          if [ -d "$dir" ] && [[ "$dir" != "." ]] && [[ "$dir" != ".." ]] && [[ "$dir" != ".git" ]] && [[ "$dir" != ".github" ]] && [[ "$dir" != "final_apks" ]]; then
-            RAW_NAME=$(basename "$dir")
-            APP_NAME="App_${i}_${RAW_NAME}"
-            
-            echo "=============================================="
-            echo "Building App $i: $RAW_NAME"
-            echo "=============================================="
-            
-            # Har app ke liye ek naya flutter project banayenge jiska package ID bilkul alag hoga
-            flutter create --org com.durgesh.app$i --project-name="app_$i" "$ROOT/workspace_$i"
-            
-            cd "$ROOT/workspace_$i"
-            
-            # Aapke upload kiye gaye folder se asli code/files ko 'lib' mein copy karenge
-            if [ -d "$ROOT/$dir/lib" ]; then
-              rm -rf lib/*
-              cp -r "$ROOT/$dir/lib/"* "lib/"
-            elif [ "$(ls -A "$ROOT/$dir")" ]; then
-              cp -r "$ROOT/$dir/"* "lib/" 2>/dev/null || true
-            fi
-            
-            # Agar wahan pubspec.yaml hai toh use replace karenge
-            if [ -f "$ROOT/$dir/pubspec.yaml" ]; then
-              cp "$ROOT/$dir/pubspec.yaml" "pubspec.yaml"
-            fi
-            
-            flutter pub get
-            flutter build apk --release --split-per-abi
-            
-            # Chhote size ka release APK uthakar final folder mein save karenge
-            if [ -f "build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk" ]; then
-              cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "$ROOT/final_apks/${APP_NAME}.apk"
-              echo "SUCCESS: ${APP_NAME}.apk created!"
-            elif [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
-              cp build/app/outputs/flutter-apk/app-release.apk "$ROOT/final_apks/${APP_NAME}.apk"
-              echo "SUCCESS: ${APP_NAME}.apk created!"
-            fi
-            
-            cd "$ROOT"
-            i=$((i + 1))
-          fi
-        done
-        
-        echo "=== All Generated APKs ==="
-        ls -la "$ROOT/final_apks"
+      - name: Build Arrow Puzzle APK
+        run: |
+          cd 1_Arrow_Puzzle
+          flutter pub get
+          flutter build apk --release
 
-    - name: Upload All APKs to Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: "final_apks/*.apk"
-        tag: v1.0.${{ github.run_number }}
-        name: "6 Custom Apps v1.0.${{ github.run_number }}"
-        body: "All 6 individual custom apps built successfully with unique package IDs, low file size, and ready to install."
-        token: ${{ secrets.GITHUB_TOKEN }}
-        allowUpdates: true
-        replacesArtifacts: true
+      - name: Build Ludo Game APK
+        run: |
+          cd 2_Ludo_Game
+          flutter pub get
+          flutter build apk --release
+
+      - name: Create Release and Upload APKs
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            1_Arrow_Puzzle/build/app/outputs/flutter-apk/app-release.apk
+            2_Ludo_Game/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
