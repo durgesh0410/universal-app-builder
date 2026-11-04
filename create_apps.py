@@ -19,20 +19,21 @@ def generate_apps():
         app_title = app["title"]
         app_type = app["type"]
         
-        print(f"Generating full AdMob integrated code for: {app_title}")
+        print(f"Generating full AdMob integrated code with v2 embedding for: {app_title}")
         
         lib_path = os.path.join(app_name, "lib")
         os.makedirs(lib_path, exist_ok=True)
         
-        # AndroidManifest.xml path for AdMob meta-data injection
+        # 1. AndroidManifest.xml path
         manifest_dir = os.path.join(app_name, "android", "app", "src", "main")
         os.makedirs(manifest_dir, exist_ok=True)
         
         manifest_path = os.path.join(manifest_dir, "AndroidManifest.xml")
-        manifest_code = """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        manifest_code = f"""<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.{app_name.lower()}">
     <application
-        android:label=""" + f'"{app_title}"' + """
-        android:name="${applicationName}"
+        android:label="{app_title}"
+        android:name="${{applicationName}}"
         android:icon="@mipmap/ic_launcher">
         
         <!-- Sample AdMob App ID -->
@@ -66,6 +67,22 @@ def generate_apps():
         with open(manifest_path, "w") as f:
             f.write(manifest_code)
 
+        # 2. MainActivity.kt for Android v2 embedding
+        kotlin_dir = os.path.join(app_name, "android", "app", "src", "main", "kotlin", "com", "example", app_name.lower())
+        os.makedirs(kotlin_dir, exist_ok=True)
+        
+        main_activity_path = os.path.join(kotlin_dir, "MainActivity.kt")
+        main_activity_code = f"""package com.example.{app_name.lower()}
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity: FlutterActivity() {{
+}}
+"""
+        with open(main_activity_path, "w") as f:
+            f.write(main_activity_code)
+
+        # 3. Main Dart Game Code
         if app_type == "arrow":
             main_code = """import 'package:flutter/material.dart';
 import 'dart:math';
@@ -503,6 +520,7 @@ class _LudoMasterScreenState extends State<LudoMasterScreen> {
         with open(os.path.join(lib_path, "main.dart"), "w") as f:
             f.write(main_code)
             
+        # 4. pubspec.yaml setup
         pubspec_path = os.path.join(app_name, "pubspec.yaml")
         pubspec_code = f"""name: {app_name.lower()}
 description: Apps with AdMob integration.
@@ -531,5 +549,5 @@ flutter:
 
 if __name__ == "__main__":
     generate_apps()
-    print("All apps and AdMob manifest configs generated successfully!")
+    print("All apps with Kotlin MainActivity and AdMob config generated successfully!")
 
