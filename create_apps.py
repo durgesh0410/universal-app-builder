@@ -3,11 +3,11 @@ import os
 # Apps ki list (naam ke beech me space chalega, underscore nahi)
 apps = [
     {
-        "name": "Arrow Puzzle",
+        "name": "ArrowPuzzle",
         "title": "Arrow Puzzle"
     },
     {
-        "name": "Ludo Game",
+        "name": "LudoGame",
         "title": "Ludo Game"
     }
 ]
