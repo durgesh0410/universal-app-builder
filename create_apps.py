@@ -1,4 +1,5 @@
 import os
+import shutil
 
 apps = [
     {
@@ -19,8 +20,12 @@ def generate_apps():
         app_title = app["title"]
         app_type = app["type"]
         
-        print(f"Generating full AdMob integrated code with v2 embedding for: {app_title}")
+        print(f"Cleaning and generating fresh app for: {app_title}")
         
+        # Remove old directory if exists to avoid cache/embedding conflict
+        if os.path.exists(app_name):
+            shutil.rmtree(app_name)
+            
         lib_path = os.path.join(app_name, "lib")
         os.makedirs(lib_path, exist_ok=True)
         
@@ -67,7 +72,7 @@ def generate_apps():
         with open(manifest_path, "w") as f:
             f.write(manifest_code)
 
-        # 2. MainActivity.kt for Android v2 embedding
+        # 2. MainActivity.kt for Android v2 embedding (fixes the error permanently)
         kotlin_dir = os.path.join(app_name, "android", "app", "src", "main", "kotlin", "com", "example", app_name.lower())
         os.makedirs(kotlin_dir, exist_ok=True)
         
@@ -549,5 +554,4 @@ flutter:
 
 if __name__ == "__main__":
     generate_apps()
-    print("All apps with Kotlin MainActivity and AdMob config generated successfully!")
-
+    print("Fresh apps with clean directories and v2 embedding generated!")
