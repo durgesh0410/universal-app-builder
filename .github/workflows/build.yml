@@ -5,12 +5,15 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [Arrow Puzzle, Ludo Game]
+        app: [ArrowPuzzle, LudoGame]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -29,11 +32,9 @@ jobs:
 
       - name: Generate Android & Build ${{ matrix.app }}
         run: |
-          # Folder name me se space hata kar handle karenge
-          APP_DIR="${{ matrix.app }}"
-          cd "$APP_DIR"
+          cd ${{ matrix.app }}
           if [ ! -d "android" ]; then
-            flutter create . --platforms=android --org com.durgesh.app
+            flutter create . --platforms=android --org com.durgesh.${{ matrix.app }}
           fi
           flutter pub get
           flutter build apk --release
@@ -44,4 +45,4 @@ jobs:
           files: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+    
