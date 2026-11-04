@@ -1,4 +1,4 @@
-name: 1_arrow_puzzle
+name: arrow_puzzle
 description: A flutter app for Arrow Puzzle
 publish_to: 'none'
 version: 1.0.0+1
