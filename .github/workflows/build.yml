@@ -26,13 +26,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0'
+          flutter-version: '3.19.6'
           cache: true
 
-      - name: Clean and Get Dependencies
+      - name: Clean, Recreate Android & Get Dependencies
         run: |
           cd ${{ matrix.app }}
           flutter clean
+          # यह कमांड पुरानी v1 embedding को हटाकर ऑटोमैटिक v2 embedding वाला एंड्रॉइड फोल्डर बना देगी
+          flutter create . --platforms=android --org com.example
           flutter pub get
 
       - name: Build APK
