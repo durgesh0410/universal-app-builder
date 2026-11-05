@@ -1,58 +1,21 @@
-name: Build and Release Flutter Apps
-
-on:
-  push:
-    tags:
-      - 'v*'
-
+name: Build Arrow Puzzle
+on: [push]
 jobs:
   build:
-    name: Build APK for ${{ matrix.app }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [arrowpuzzle, ludogame]
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
         with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.19.6'
-          cache: true
-
-      - name: Get Dependencies & Build
-        run: |
-          cd ${{ matrix.app }}
+          flutter-version: '3.22.0'
+          channel: 'stable'
+      - run: |
+          cd arrowpuzzle
+          rm -rf android
+          flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle
           flutter pub get
           flutter build apk --release
-
-      - name: Upload APK to Artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app }}-apk
-          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all workflow artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create GitHub Release and Upload APKs
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            arrowpuzzle-apk/*.apk
-            ludogame-apk/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: arrowpuzzle-apk
+          path: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
