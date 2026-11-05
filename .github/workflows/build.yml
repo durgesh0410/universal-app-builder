@@ -3,6 +3,8 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -17,11 +19,14 @@ jobs:
           cd arrowpuzzle
           rm -rf android
           flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle
-          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.10'/" android/build.gradle
-          cat android/build.gradle | grep kotlin_version
+          sed -i 's/1.7.1/1.9.10/g' android/settings.gradle || true
+          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.10'/" android/build.gradle || true
           flutter pub get
           flutter build apk --release
-      - uses: actions/upload-artifact@v4
+      - name: Release APK
+        uses: softprops/action-gh-release@v2
         with:
-          name: arrowpuzzle-apk
-          path: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: Arrow Puzzle v1.0.${{ github.run_number }}
+          files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
+          body: "Arrow Puzzle APK - Ready to install"
