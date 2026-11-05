@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        app: [arrow_puzzle, ludogame]
+        app: [arrowpuzzle, ludogame]
 
     steps:
       - name: Checkout Repository
@@ -52,7 +52,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            arrow_puzzle-apk/*.apk
+            arrowpuzzle-apk/*.apk
             ludogame-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
