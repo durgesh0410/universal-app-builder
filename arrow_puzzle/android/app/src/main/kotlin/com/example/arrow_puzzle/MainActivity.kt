@@ -1,4 +1,4 @@
-package com.example.arrowpuzzle
+package com.example.arrow_puzzle
 
 import io.flutter.embedding.android.FlutterActivity
 

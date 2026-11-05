@@ -1,5 +1,5 @@
-name: ludogame
-description: Apps with AdMob integration.
+name: ludo_game
+description: Mobile game with AdMob.
 publish_to: 'none'
 version: 1.0.0+1
 
