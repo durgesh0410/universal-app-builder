@@ -17,6 +17,18 @@ jobs:
           channel: 'stable'
       - run: |
           cd arrowpuzzle
+          # pubspec duplicate fix
+          python3 -c "
+          c=open('pubspec.yaml').read()
+          if c.count('flutter:')>1:
+              p=c.split('flutter:')
+              c=p[0]+'flutter:'+p[1]
+              if 'assets/sounds/' not in c:
+                  c=c.rstrip()+'\n  assets:\n    - assets/sounds/\n'
+              open('pubspec.yaml','w').write(c)
+          "
+          mkdir -p assets/sounds
+          touch assets/sounds/tap.mp3 assets/sounds/exit.mp3 assets/sounds/win.mp3
           rm -rf android
           flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle
           sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' android/settings.gradle || true
@@ -29,4 +41,4 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Arrow Puzzle v1.0.${{ github.run_number }}
           files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
-          body: "Full Game - Arrow Exit + Sound + Ads"
+          body: "Full Game Fixed"
