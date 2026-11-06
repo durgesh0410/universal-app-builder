@@ -17,20 +17,34 @@ jobs:
           channel: 'stable'
       - run: |
           cd arrowpuzzle
-          # pubspec duplicate fix
-          python3 -c "
-          c=open('pubspec.yaml').read()
-          if c.count('flutter:')>1:
-              p=c.split('flutter:')
-              c=p[0]+'flutter:'+p[1]
-              if 'assets/sounds/' not in c:
-                  c=c.rstrip()+'\n  assets:\n    - assets/sounds/\n'
-              open('pubspec.yaml','w').write(c)
-          "
           mkdir -p assets/sounds
           touch assets/sounds/tap.mp3 assets/sounds/exit.mp3 assets/sounds/win.mp3
-          rm -rf android
-          flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle
+          # flutter create sirf android folder ke liye, pubspec ko haath nahi lagayega
+          flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle --overwrite
+          # pubspec wapas restore karo kyunki create overwrite kar deta hai
+          cat > pubspec.yaml << 'YAML'
+          name: arrowpuzzle
+          description: "Arrow Puzzle"
+          publish_to: 'none'
+          version: 1.0.0+1
+          environment:
+            sdk: '>=3.0.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+            cupertino_icons: ^1.0.8
+            google_mobile_ads: ^5.2.0
+            audioplayers: ^6.0.0
+            vibration: ^2.0.0
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+            flutter_lints: ^3.0.0
+          flutter:
+            uses-material-design: true
+            assets:
+              - assets/sounds/
+          YAML
           sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' android/settings.gradle || true
           grep -q "APPLICATION_ID" android/app/src/main/AndroidManifest.xml || sed -i 's|<application|<application\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>|' android/app/src/main/AndroidManifest.xml
           flutter pub get
@@ -41,4 +55,4 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Arrow Puzzle v1.0.${{ github.run_number }}
           files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
-          body: "Full Game Fixed"
+          body: "Full Game - Arrow Exit + Sound + Ads"
