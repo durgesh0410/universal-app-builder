@@ -17,10 +17,10 @@ jobs:
           channel: 'stable'
       - run: |
           cd arrowpuzzle
-          sed -i '/google_mobile_ads/d' pubspec.yaml || true
           rm -rf android
           flutter create -t app . --org com.arrowpuzzle.game --project-name arrowpuzzle
           sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' android/settings.gradle || true
+          grep -q "APPLICATION_ID" android/app/src/main/AndroidManifest.xml || sed -i 's|<application|<application\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>|' android/app/src/main/AndroidManifest.xml
           flutter pub get
           flutter build apk --release
       - name: Release APK
@@ -29,4 +29,4 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Arrow Puzzle v1.0.${{ github.run_number }}
           files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
-          body: "Fixed - No Ads Crash Version"
+          body: "Full Game - Arrow Exit + Sound + Ads"
