@@ -27,15 +27,15 @@ jobs:
         cache: true
 
     - name: Install Dependencies
-      run: cd colony_fix && flutter pub get
+      run: flutter pub get
 
     - name: Build APK
-      run: cd colony_fix && flutter build apk --release
+      run: flutter build apk --release
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v1
       with:
-        files: colony_fix/build/app/outputs/flutter-apk/app-release.apk
+        files: build/app/outputs/flutter-apk/app-release.apk
         tag_name: v1.0.${{ github.run_number }}
         name: Colony Fix App v1.0.${{ github.run_number }}
         body: 'Automatic release build for Colony Maintenance App.'
