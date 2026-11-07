@@ -1,4 +1,4 @@
-name: Build Colony Fix APK
+name: Build and Release APK
 
 on:
   push:
@@ -7,6 +7,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v3
@@ -29,9 +32,13 @@ jobs:
     - name: Build APK
       run: cd colony_fix && flutter build apk --release
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v3
+    - name: Create Release and Upload APK
+      uses: softprops/action-gh-release@v1
       with:
-        name: colony-fix-apk
-        path: colony_fix/build/app/outputs/flutter-apk/app-release.apk
+        files: colony_fix/build/app/outputs/flutter-apk/app-release.apk
+        tag_name: v1.0.${{ github.run_number }}
+        name: Colony Fix App v1.0.${{ github.run_number }}
+        body: 'Automatic release build for Colony Maintenance App.'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
