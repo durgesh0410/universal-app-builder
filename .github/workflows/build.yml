@@ -13,11 +13,12 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.32.0'
           channel: 'stable'
       - run: |
           cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
           cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
+          cat /tmp/my_pubspec.yaml
           rm -rf /tmp/fresh_app
           flutter create --org com.arrowpuzzle.game --project-name arrowpuzzle /tmp/fresh_app
           rm -rf arrowpuzzle/android
@@ -26,48 +27,22 @@ jobs:
           cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
           mkdir -p arrowpuzzle/assets/sounds
           touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
-          # MANIFEST FIX
+          # MANIFEST + SETTINGS FIX
           python3 << 'PY'
+          import pathlib
+          # manifest
           path="arrowpuzzle/android/app/src/main/AndroidManifest.xml"
           txt=open(path).read()
           if "APPLICATION_ID" not in txt:
               idx = txt.find("<application")
               end = txt.find(">", idx)
-              insert = '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>'
-              txt = txt[:end+1] + insert + txt[end+1:]
+              txt = txt[:end+1] + '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>' + txt[end+1:]
               open(path,'w').write(txt)
+          # settings.gradle - kotlin & agp dikhao
+          p = pathlib.Path("arrowpuzzle/android/settings.gradle")
+          print(p.read_text())
           PY
-          # KOTLIN + SDK FIX - YEHI ASLI FIX HAI
-          python3 << 'PY'
-          import pathlib
-          # 1. android/build.gradle - kotlin 1.9.10
-          p = pathlib.Path("arrowpuzzle/android/build.gradle")
-          t = p.read_text()
-          t = t.replace("ext.kotlin_version = '1.7.10'", "ext.kotlin_version = '1.9.10'")
-          t = t.replace('ext.kotlin_version = "1.7.10"', 'ext.kotlin_version = "1.9.10"')
-          if "1.9.10" not in t:
-              t = t.replace("ext.kotlin_version", "ext.kotlin_version = '1.9.10' // patched")
-          p.write_text(t)
-          print("build.gradle:", t[:600])
-          # 2. app/build.gradle - compileSdk 35
-          p2 = pathlib.Path("arrowpuzzle/android/app/build.gradle")
-          t2 = p2.read_text()
-          t2 = t2.replace("compileSdkVersion 33", "compileSdkVersion 35")
-          t2 = t2.replace("compileSdkVersion flutter.compileSdkVersion", "compileSdkVersion 35")
-          t2 = t2.replace("compileSdk 33", "compileSdk 35")
-          t2 = t2.replace("minSdkVersion 19", "minSdkVersion 21")
-          t2 = t2.replace("targetSdkVersion 33", "targetSdkVersion 35")
-          p2.write_text(t2)
-          print("app build.gradle patched")
-          # 3. settings.gradle - gradle plugin 8.3.0
-          p3 = pathlib.Path("arrowpuzzle/android/settings.gradle")
-          t3 = p3.read_text()
-          print("settings:", t3[:500])
-          PY
-          # gradle wrapper version bump
-          sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' arrowpuzzle/android/settings.gradle || true
-          cat arrowpuzzle/android/build.gradle
-          cat arrowpuzzle/android/app/build.gradle | head -n 30
+          cat arrowpuzzle/android/settings.gradle
           cd arrowpuzzle
           flutter pub get
           flutter build apk --release
@@ -77,4 +52,4 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Arrow Puzzle v1.0.${{ github.run_number }}
           files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
-          body: "Full Game Fixed Kotlin 1.9.10 + SDK35"
+          body: "Built with Flutter 3.32"
