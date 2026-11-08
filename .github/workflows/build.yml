@@ -1,58 +1,54 @@
-name: Build and Release Flutter Apps
-
-on:
-  push:
-    tags:
-      - 'v*'
-
+name: Build Arrow Puzzle
+on: [push]
 jobs:
   build:
-    name: Build APK for ${{ matrix.app }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [arrowpuzzle, ludogame]
-
+    permissions:
+      contents: write
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'temurin'
           java-version: '17'
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.6'
-          cache: true
-
-      - name: Get Dependencies & Build APK
-        run: |
-          cd ${{ matrix.app }}
+          flutter-version: '3.22.0'
+          channel: 'stable'
+      - run: |
+          # apna game code backup
+          cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
+          cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
+          ls arrowpuzzle/lib/
+          # fresh android v2 embedding wala folder banao /tmp me
+          rm -rf /tmp/fresh_app
+          flutter create --org com.arrowpuzzle.game --project-name arrowpuzzle /tmp/fresh_app
+          # ab uska android folder copy karo
+          rm -rf arrowpuzzle/android
+          cp -r /tmp/fresh_app/android arrowpuzzle/android
+          # apna code wapas
+          cp /tmp/my_main.dart arrowpuzzle/lib/main.dart
+          cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
+          mkdir -p arrowpuzzle/assets/sounds
+          touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
+          # manifest fix
+          python3 << 'PY'
+          path="arrowpuzzle/android/app/src/main/AndroidManifest.xml"
+          txt=open(path).read()
+          if "APPLICATION_ID" not in txt:
+              txt=txt.replace("<application", '<application\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>',1)
+              open(path,'w').write(txt)
+          print(open(path).read()[:1000])
+          PY
+          # gradle version fix
+          sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' arrowpuzzle/android/settings.gradle || true
+          cd arrowpuzzle
           flutter pub get
           flutter build apk --release
-
-      - name: Upload APK to Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Release APK
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ matrix.app }}-apk
-          path: ${{ matrix.app }}/build/app/outputs/flutter-apk/app-release.apk
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all workflow artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Create GitHub Release and Upload APKs
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            arrowpuzzle-apk/*.apk
-            ludogame-apk/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v1.0.${{ github.run_number }}
+          name: Arrow Puzzle v1.0.${{ github.run_number }}
+          files: arrowpuzzle/build/app/outputs/flutter-apk/app-release.apk
+          body: "Full Game - Arrow Exit + Sound + Ads"
