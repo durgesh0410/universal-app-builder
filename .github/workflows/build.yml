@@ -26,12 +26,20 @@ jobs:
           cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
           mkdir -p arrowpuzzle/assets/sounds
           touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
+          # MANIFEST FIX - SAHI JAGAH
           python3 << 'PY'
           path="arrowpuzzle/android/app/src/main/AndroidManifest.xml"
           txt=open(path).read()
+          print("BEFORE:", txt[:500])
           if "APPLICATION_ID" not in txt:
-              txt=txt.replace("<application", '<application\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>',1)
+              # <application ...> ke closing > ke BAAD dalo, andar nahi
+              idx = txt.find("<application")
+              end = txt.find(">", idx)
+              insert = '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>'
+              txt = txt[:end+1] + insert + txt[end+1:]
               open(path,'w').write(txt)
+              print("manifest fixed correctly")
+          print(open(path).read()[:800])
           PY
           sed -i -E 's/version "1\.[0-9.]+"/version "1.9.10"/' arrowpuzzle/android/settings.gradle || true
           cd arrowpuzzle
