@@ -18,7 +18,6 @@ jobs:
       - run: |
           cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
           cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
-          cat /tmp/my_pubspec.yaml
           rm -rf /tmp/fresh_app
           flutter create --org com.arrowpuzzle.game --project-name arrowpuzzle /tmp/fresh_app
           rm -rf arrowpuzzle/android
@@ -27,22 +26,25 @@ jobs:
           cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
           mkdir -p arrowpuzzle/assets/sounds
           touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
-          # MANIFEST + SETTINGS FIX
+          ls -R arrowpuzzle/android
+          # MANIFEST FIX - dono gradle type handle
           python3 << 'PY'
-          import pathlib
-          # manifest
+          import pathlib, os
           path="arrowpuzzle/android/app/src/main/AndroidManifest.xml"
           txt=open(path).read()
+          print(txt[:600])
           if "APPLICATION_ID" not in txt:
               idx = txt.find("<application")
               end = txt.find(">", idx)
               txt = txt[:end+1] + '\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>' + txt[end+1:]
               open(path,'w').write(txt)
-          # settings.gradle - kotlin & agp dikhao
-          p = pathlib.Path("arrowpuzzle/android/settings.gradle")
-          print(p.read_text())
+              print("manifest fixed")
+          # settings file jo bhi ho print karo, error mat do
+          for f in ["arrowpuzzle/android/settings.gradle", "arrowpuzzle/android/settings.gradle.kts"]:
+              if os.path.exists(f):
+                  print("FOUND:", f)
+                  print(open(f).read()[:800])
           PY
-          cat arrowpuzzle/android/settings.gradle
           cd arrowpuzzle
           flutter pub get
           flutter build apk --release
