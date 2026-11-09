@@ -34,7 +34,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
   final String interstitialId = 'ca-app-pub-3940256099942544/1033173712';
 
   @override
-  void initState() { super.initState(); _newLevel(); _loadBanner(); _loadInterstitial(); }
+  void initState() { super.initState(); _newLevel() { isWon = false;; _loadBanner(); _loadInterstitial(); }
 
   // ---- SOUND ----
   Future<void> _playSound(String type) async {
@@ -70,7 +70,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     }
   }
 
-  void _newLevel() {
+  void _newLevel() { isWon = false; {
     gridSize = 3 + level; if (gridSize > 6) gridSize = 6;
     arrows = List.generate(gridSize * gridSize, (_) => rand.nextInt(4));
     exited = List.filled(arrows.length, false);
@@ -104,7 +104,8 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     _checkExits();
   }
 
-  void _checkExits() async {
+  void _checkExits() {
+    if (isWon) return; async {
     bool anyExit = false;
     for (int i = 0; i < arrows.length; i++) {
       if (!exited[i] && _canExit(i)) {
@@ -136,7 +137,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text('🎉 Level $level Clear!', textAlign: TextAlign.center),
       content: Column(mainAxisSize: MainAxisSize.min, children: [Text('Score: $score', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text('Moves: $moves'), SizedBox(height: 10), Text('Saare arrows bahar nikal gaye! 🔥')]),
-      actions: [Center(child: ElevatedButton(onPressed: () { Navigator.pop(context); setState(() { level++; _newLevel(); }); }, child: Text('NEXT LEVEL →')))],
+      actions: [Center(child: ElevatedButton(onPressed: () { Navigator.pop(context); setState(() { level++; _newLevel() { isWon = false;; }); }, child: Text('NEXT LEVEL →')))],
     ));
   }
 
@@ -169,7 +170,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
         Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10), child: Row(children: [
           Expanded(child: ElevatedButton.icon(onPressed: _newLevel, icon: Icon(Icons.refresh), label: Text('SHUFFLE'), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.deepPurple))),
           SizedBox(width: 10),
-          Expanded(child: ElevatedButton.icon(onPressed: () { setState(() { for (int i = 0; i < arrows.length; i++) { int r = i ~/ gridSize, c = i % gridSize; if (r == 0) arrows[i] = 0; else if (r == gridSize - 1) arrows[i] = 2; else if (c == 0) arrows[i] = 3; else arrows[i] = 1; } }); _checkExits(); }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
+          Expanded(child: ElevatedButton.icon(onPressed: () { setState(() { for (int i = 0; i < arrows.length; i++) { int r = i ~/ gridSize, c = i % gridSize; int correct = -1; if (r == 0) correct = 0; else if (r == gridSize - 1) correct = 2; else if (c == 0) correct = 3; else if (c == gridSize - 1) correct = 1; if (correct != -1 && arrows[i] != correct && !exited[i]) { arrows[i] = correct; break; } } }); _checkExits(); }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
         ])),
         if (_isBannerLoaded && _bannerAd != null) Container(width: _bannerAd!.size.width.toDouble(), height: _bannerAd!.size.height.toDouble(), child: AdWidget(ad: _bannerAd!))
         else Container(height: 50, alignment: Alignment.center, child: Text('Ad loading...', style: TextStyle(color: Colors.white30, fontSize: 11))),
