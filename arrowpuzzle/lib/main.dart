@@ -25,6 +25,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
   List<bool> exited = [];
   List<double> exitAnim = [];
   bool isWon = false, soundOn = true;
+  bool _dialogShown = false;
   Random rand = Random();
   final AudioPlayer _player = AudioPlayer();
 
@@ -72,6 +73,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
 
   void _newLevel() {
     isWon = false;
+    _dialogShown = false;
     gridSize = 4 + (level ~/ 8); if (gridSize > 6) gridSize = 6;
     arrows = List.generate(gridSize * gridSize, (_) => rand.nextInt(4));
     exited = List.filled(arrows.length, false);
@@ -121,6 +123,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
       // dobara check karo chain reaction ke liye
       await Future.delayed(Duration(milliseconds: 200));
       _checkExits();
+      return;
     } else {
       combo = 0;
     }
@@ -134,6 +137,8 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
   }
 
   void _showWin() {
+    if (_dialogShown) return;
+    _dialogShown = true;
     _showInterstitial();
     showDialog(context: context, barrierDismissible: false, builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
