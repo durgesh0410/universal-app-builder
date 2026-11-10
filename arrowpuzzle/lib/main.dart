@@ -103,6 +103,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     // check exit after rotate
     await Future.delayed(Duration(milliseconds: 150));
     _checkExits();
+      return;
   }
 
   void _checkExits() async {
