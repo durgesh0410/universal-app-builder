@@ -189,9 +189,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
               }
             });
             _checkExits();
-          }
-          }
-          } }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
+  }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
         ])),
         if (_isBannerLoaded && _bannerAd != null) Container(width: _bannerAd!.size.width.toDouble(), height: _bannerAd!.size.height.toDouble(), child: AdWidget(ad: _bannerAd!))
         else Container(height: 50, alignment: Alignment.center, child: Text('Ad loading...', style: TextStyle(color: Colors.white30, fontSize: 11))),
