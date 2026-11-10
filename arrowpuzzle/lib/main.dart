@@ -72,7 +72,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
 
   void _newLevel() {
     isWon = false;
-    gridSize = 3 + level; if (gridSize > 6) gridSize = 6;
+    gridSize = 4 + (level ~/ 8); if (gridSize > 6) gridSize = 6;
     arrows = List.generate(gridSize * gridSize, (_) => rand.nextInt(4));
     exited = List.filled(arrows.length, false);
     exitAnim = List.filled(arrows.length, 0.0);
