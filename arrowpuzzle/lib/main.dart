@@ -171,7 +171,27 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
         Padding(padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10), child: Row(children: [
           Expanded(child: ElevatedButton.icon(onPressed: _newLevel, icon: Icon(Icons.refresh), label: Text('SHUFFLE'), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.deepPurple))),
           SizedBox(width: 10),
-          Expanded(child: ElevatedButton.icon(onPressed: () { setState(() { for (int i = 0; i < arrows.length; i++) { int r = i ~/ gridSize, c = i % gridSize; if (r == 0) arrows[i] = 0; else if (r == gridSize - 1) arrows[i] = 2; else if (c == 0) arrows[i] = 3; else arrows[i] = 1; } }); _checkExits(); }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
+          Expanded(child: ElevatedButton.icon(onPressed: () {
+            if (isWon) return;
+            setState(() {
+              for (int i = 0; i < arrows.length; i++) {
+                if (exited[i]) continue;
+                int r = i ~/ gridSize, c = i % gridSize;
+                int correct = -1;
+                if (r == 0) correct = 0;
+                else if (r == gridSize - 1) correct = 2;
+                else if (c == 0) correct = 3;
+                else if (c == gridSize - 1) correct = 1;
+                if (correct != -1 && arrows[i] != correct) {
+                  arrows[i] = correct;
+                  break;
+                }
+              }
+            });
+            _checkExits();
+          }
+          }
+          } }, icon: Icon(Icons.lightbulb), label: Text('HINT'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurpleAccent, foregroundColor: Colors.white))),
         ])),
         if (_isBannerLoaded && _bannerAd != null) Container(width: _bannerAd!.size.width.toDouble(), height: _bannerAd!.size.height.toDouble(), child: AdWidget(ad: _bannerAd!))
         else Container(height: 50, alignment: Alignment.center, child: Text('Ad loading...', style: TextStyle(color: Colors.white30, fontSize: 11))),
