@@ -16,11 +16,21 @@ jobs:
           flutter-version: '3.32.0'
           channel: 'stable'
       - run: |
+          cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
+          cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
+          cp arrowpuzzle/assets/icon.png /tmp/my_icon.png
+          rm -rf /tmp/fresh_app
+          flutter create -t app --org com.example --project-name arrowpuzzle /tmp/fresh_app
+          rm -rf arrowpuzzle/android
+          cp -r /tmp/fresh_app/android arrowpuzzle/android
+          cp /tmp/my_main.dart arrowpuzzle/lib/main.dart
+          cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
+          cp /tmp/my_icon.png arrowpuzzle/assets/icon.png
+          mkdir -p arrowpuzzle/assets/sounds
           pip install pillow -q
           python3 make_new_icon.py
           python3 make_icons.py
           ls -lh arrowpuzzle/assets/icon.png
-          ls arrowpuzzle/android/app/src/main/res/mipmap-xxxhdpi/
           cd arrowpuzzle
           flutter pub get
           flutter build apk --release
