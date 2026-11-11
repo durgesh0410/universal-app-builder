@@ -16,32 +16,39 @@ jobs:
           flutter-version: '3.32.0'
           channel: 'stable'
       - run: |
-          echo "=== MainActivity fix V1 -> V2, android folder delete nahi ==="
+          ls -R arrowpuzzle | head -n 100
+          echo "--- android check ---"
+          ls arrowpuzzle/android || echo "android MISSING"
+          # Agar android folder nahi hai to fresh banao
+          if [ ! -d "arrowpuzzle/android" ]; then
+            echo "android folder missing - recreating"
+            cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
+            cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
+            mkdir -p /tmp/bak_assets
+            cp -r arrowpuzzle/assets/* /tmp/bak_assets/ 2>/dev/null || true
+            rm -rf /tmp/fresh_app
+            flutter create -t app --org com.example --project-name arrowpuzzle /tmp/fresh_app
+            cp -r /tmp/fresh_app/android arrowpuzzle/android
+            cp /tmp/my_main.dart arrowpuzzle/lib/main.dart
+            cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
+            mkdir -p arrowpuzzle/assets
+            cp -r /tmp/bak_assets/* arrowpuzzle/assets/ 2>/dev/null || true
+            ls arrowpuzzle/android/app/src/main/
+          fi
+          echo "--- MainActivity fix V2 ---"
           find arrowpuzzle/android -name "MainActivity*"
-          cat arrowpuzzle/android/app/src/main/java/com/example/arrowpuzzle/MainActivity.kt 2>/dev/null || cat arrowpuzzle/android/app/src/main/java/com/example/arrowpuzzle/MainActivity.java 2>/dev/null || echo "not found kt/java"
-          # Kotlin wali file ko V2 me badlo
           MAIN_KT=$(find arrowpuzzle/android -name "MainActivity.kt" | head -1)
-          MAIN_JAVA=$(find arrowpuzzle/android -name "MainActivity.java" | head -1)
           if [ -n "$MAIN_KT" ]; then
             echo "Fixing $MAIN_KT"
-            cat > "$MAIN_KT" << 'KT'
+            PKG=$(grep -r "package " "$MAIN_KT" | head -1 | awk '{print $2}')
+            echo "package is $PKG"
+            cat > "$MAIN_KT" << KT
           package com.example.arrowpuzzle
           import io.flutter.embedding.android.FlutterActivity
           class MainActivity: FlutterActivity()
           KT
           fi
-          if [ -n "$MAIN_JAVA" ]; then
-            echo "Fixing $MAIN_JAVA"
-            cat > "$MAIN_JAVA" << 'JAVA'
-          package com.example.arrowpuzzle;
-          import io.flutter.embedding.android.FlutterActivity;
-          public class MainActivity extends FlutterActivity {}
-          JAVA
-          fi
-          # Manifest me embedding 2 set karo
-          sed -i 's/flutterEmbedding.*/flutterEmbedding" android:value="2" \/>/g' arrowpuzzle/android/app/src/main/AndroidManifest.xml || true
-          grep -n "flutterEmbedding" arrowpuzzle/android/app/src/main/AndroidManifest.xml || true
-          # Icon wahi patla wala
+          grep -n "flutterEmbedding" arrowpuzzle/android/app/src/main/AndroidManifest.xml || echo "no embedding tag - ok V2 default"
           pip install pillow -q
           python3 make_new_icon.py
           python3 make_icons.py
