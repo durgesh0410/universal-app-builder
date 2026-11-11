@@ -18,18 +18,13 @@ jobs:
       - run: |
           cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
           cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
-        cp arrowpuzzle/assets/icon.png /tmp/my_icon.png
           rm -rf /tmp/fresh_app
           flutter create --org com.arrowpuzzle.game --project-name arrowpuzzle /tmp/fresh_app
           rm -rf arrowpuzzle/android
           cp -r /tmp/fresh_app/android arrowpuzzle/android
           cp /tmp/my_main.dart arrowpuzzle/lib/main.dart
           cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
-        cp /tmp/my_icon.png arrowpuzzle/assets/icon.png
-        cp /tmp/my_pubspec.yaml /tmp/x.yaml
           mkdir -p arrowpuzzle/assets/sounds
-        pip install pillow -q
-        python3 make_icons.py
           touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
           python3 -c "
           p='arrowpuzzle/android/app/src/main/AndroidManifest.xml'
