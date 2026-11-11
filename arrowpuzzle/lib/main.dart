@@ -157,7 +157,7 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Color(0xFF130A2E),
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, centerTitle: true,
-        title: Text('🏹 ARROW PUZZLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+        title: Row(mainAxisSize: MainAxisSize.min, children: [Container(padding: EdgeInsets.all(5), decoration: BoxDecoration(color: Colors.amber, borderRadius: BorderRadius.circular(8)), child: Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 20)), SizedBox(width: 8), Text('ARROW PUZZLE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
         actions: [IconButton(icon: Icon(soundOn ? Icons.volume_up : Icons.volume_off, color: Colors.white), onPressed: () => setState(() => soundOn = !soundOn))],
       ),
       body: Column(children: [
