@@ -16,7 +16,8 @@ jobs:
           flutter-version: '3.32.0'
           channel: 'stable'
       - run: |
-          cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
+          cp arrowpuzzle/assets/icon.png /tmp/icon.png
+      cp arrowpuzzle/lib/main.dart /tmp/my_main.dart
           cp arrowpuzzle/pubspec.yaml /tmp/my_pubspec.yaml
           rm -rf /tmp/fresh_app
           flutter create --org com.arrowpuzzle.game --project-name arrowpuzzle /tmp/fresh_app
