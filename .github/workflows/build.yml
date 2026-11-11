@@ -19,6 +19,8 @@ jobs:
           pip install pillow -q
           python3 make_new_icon.py
           python3 make_icons.py
+          ls -lh arrowpuzzle/assets/icon.png
+          ls arrowpuzzle/android/app/src/main/res/mipmap-xxxhdpi/
           cd arrowpuzzle
           flutter pub get
           flutter build apk --release
@@ -28,12 +30,11 @@ jobs:
           ls -lh output/
       - uses: actions/upload-artifact@v4
         with:
-          name: arrowpuzzle-apk
+          name: arrowpuzzle-apk-with-icon
           path: output/arrowpuzzle.apk
-      - name: Release bahar me banao
+      - name: Release bahar with icon
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.${{ github.run_number }}
-          name: Arrow Puzzle v1.${{ github.run_number }}
+          name: Arrow Puzzle With Icon v1.${{ github.run_number }}
           files: output/arrowpuzzle.apk
-          body: "Naya icon patla arrow wala, release bahar me"
