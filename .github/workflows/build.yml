@@ -26,9 +26,10 @@ jobs:
           cp /tmp/my_main.dart arrowpuzzle/lib/main.dart
           cp /tmp/my_pubspec.yaml arrowpuzzle/pubspec.yaml
         cp /tmp/my_icon.png arrowpuzzle/assets/icon.png
+        cp /tmp/my_pubspec.yaml /tmp/x.yaml
           mkdir -p arrowpuzzle/assets/sounds
         pip install pillow -q
-        python3 -c "from PIL import Image; import os; src='arrowpuzzle/assets/icon.png'; sizes={'mipmap-mdpi':48,'mipmap-hdpi':72,'mipmap-xhdpi':96,'mipmap-xxhdpi':144,'mipmap-xxxhdpi':192}; [ (os.makedirs(f'arrowpuzzle/android/app/src/main/res/{k}', exist_ok=True), Image.open(src).resize((v,v)).save(f'arrowpuzzle/android/app/src/main/res/{k}/ic_launcher.png')) for k,v in sizes.items() ]; print('icons done')" 
+        python3 make_icons.py
           touch arrowpuzzle/assets/sounds/tap.mp3 arrowpuzzle/assets/sounds/exit.mp3 arrowpuzzle/assets/sounds/win.mp3
           python3 -c "
           p='arrowpuzzle/android/app/src/main/AndroidManifest.xml'
