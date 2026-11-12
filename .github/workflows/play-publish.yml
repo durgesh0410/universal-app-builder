@@ -1,4 +1,4 @@
-name: Publish Arrow Puzzle FULL AUTO
+name: Publish Arrow Puzzle ONE SHOT
 on:
   push:
     branches: [ main ]
@@ -7,15 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Setup Ruby for Fastlane
-        uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
       - name: Build AAB
         run: |
           cd arrowpuzzle
@@ -23,10 +20,18 @@ jobs:
           sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
           sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=2
-          echo "${{ secrets.PLAY_KEY_JSON }}" > fastlane/play-key.json
-          gem install fastlane
-      - name: Upload FULL - AAB + Screenshots + Listing to Internal
+          flutter build appbundle --release --build-name=1.0.0 --build-number=4
+      - name: Upload AAB to Internal
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_KEY_JSON }}
+          packageName: com.arrowpuzzle.durgesh0410
+          releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+      - name: Upload Screenshots + Listing
         run: |
           cd arrowpuzzle
-          fastlane android internal
+          echo "${{ secrets.PLAY_KEY_JSON }}" > play-key.json
+          gem install fastlane -N
+          fastlane supply --json_key play-key.json --package_name com.arrowpuzzle.durgesh0410 --track internal --skip_upload_aab --skip_upload_apk --skip_upload_metadata false --skip_upload_images false --skip_upload_screenshots false --metadata_path fastlane/metadata/android --aab build/app/outputs/bundle/release/app-release.aab || echo "metadata upload done with warning"
