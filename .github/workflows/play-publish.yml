@@ -31,12 +31,15 @@ jobs:
           fp = pathlib.Path('android/app/build.gradle')
           t = fp.read_text()
           t = t.replace('com.arrowpuzzle.arrowpuzzle', 'com.arrowpuzzle.durgesh0410')
+          # MIN SDK 24 FIX - Play protection ke liye
+          t = t.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          t = t.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
+          t = t.replace('minSdk flutter.minSdkVersion', 'minSdk 24')
           if 'keystoreProperties' not in t:
               t = t.replace('android {', '''def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
           android {''', 1)
-          # YAHI FIX HAI - keyAlias check karo, signingConfigs nahi
           if 'keyAlias' not in t:
               t = t.replace('buildTypes {', '''signingConfigs {
                   release {
@@ -53,7 +56,7 @@ jobs:
           print(fp.read_text())
           PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=14
+          flutter build appbundle --release --build-name=1.0.0 --build-number=15
           ls -lh build/app/outputs/bundle/release/
       - name: SAVE KEY
         uses: actions/upload-artifact@v4
