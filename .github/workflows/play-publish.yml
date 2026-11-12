@@ -11,15 +11,21 @@ jobs:
         with: { distribution: 'zulu', java-version: '17' }
       - uses: subosito/flutter-action@v2
         with: { channel: stable, flutter-version: '3.24.5' }
-      - uses: ruby/setup-ruby@v1
-        with: { ruby-version: '3.2' }
       - name: Build
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          # purani wali chabi wapas lao
-          cp ../release-key.jks android/app/release-key.jks
-          cp ../release-key.jks ./release-key.jks
+          # CHABI FIX - ho to use karo, nahi to banao
+          if [ -f "../release-key.jks" ]; then
+            echo "Purani chabi mil gayi, wahi use kar raha hu"
+            cp ../release-key.jks android/app/release-key.jks
+            cp ../release-key.jks ./release-key.jks
+          else
+            echo "Chabi nahi mili, nayi bana raha hu aur lock kar raha hu"
+            keytool -genkey -v -keystore android/app/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
+            cp android/app/release-key.jks ./release-key.jks
+            cp android/app/release-key.jks ../release-key.jks
+          fi
           printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=arrowpuzzle\nstoreFile=release-key.jks\n" > android/key.properties
           python3 << 'PY'
           import pathlib
@@ -35,7 +41,12 @@ jobs:
           fp.write_text(t)
           PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=16
+          flutter build appbundle --release --build-name=1.0.0 --build-number=17
+      - name: Save Key
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-key-jks
+          path: arrowpuzzle/android/app/release-key.jks
       - name: Upload AAB to Play Internal
         uses: r0adkll/upload-google-play@v1
         with:
