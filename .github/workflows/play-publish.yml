@@ -8,61 +8,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
+        with: { distribution: 'zulu', java-version: '17' }
       - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.24.5'
+        with: { channel: stable, flutter-version: '3.24.5' }
       - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-      - name: Build + Sign + Upload
+        with: { ruby-version: '3.2' }
+      - name: Build
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          keytool -genkey -v -keystore android/app/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
-          cp android/app/release-key.jks ../release-key.jks
-          cp android/app/release-key.jks ./release-key.jks
+          # purani wali chabi wapas lao
+          cp ../release-key.jks android/app/release-key.jks
+          cp ../release-key.jks ./release-key.jks
           printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=arrowpuzzle\nstoreFile=release-key.jks\n" > android/key.properties
           python3 << 'PY'
           import pathlib
           fp = pathlib.Path('android/app/build.gradle')
           t = fp.read_text()
           t = t.replace('com.arrowpuzzle.arrowpuzzle', 'com.arrowpuzzle.durgesh0410')
-          # MIN SDK 24 FIX - Play protection ke liye
           t = t.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-          t = t.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
-          t = t.replace('minSdk flutter.minSdkVersion', 'minSdk 24')
           if 'keystoreProperties' not in t:
-              t = t.replace('android {', '''def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file('key.properties')
-          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
-          android {''', 1)
+              t = t.replace('android {', "def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file('key.properties')\nif (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }\nandroid {", 1)
           if 'keyAlias' not in t:
-              t = t.replace('buildTypes {', '''signingConfigs {
-                  release {
-                      keyAlias keystoreProperties['keyAlias']
-                      keyPassword keystoreProperties['keyPassword']
-                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                      storePassword keystoreProperties['storePassword']
-                  }
-              }
-              buildTypes {''', 1)
+              t = t.replace('buildTypes {', "signingConfigs {\n release {\n keyAlias keystoreProperties['keyAlias']\n keyPassword keystoreProperties['keyPassword']\n storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null\n storePassword keystoreProperties['storePassword']\n }\n}\nbuildTypes {", 1)
           t = t.replace('signingConfig = signingConfigs.debug', 'signingConfig = signingConfigs.release')
-          t = t.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
           fp.write_text(t)
-          print(fp.read_text())
           PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=15
-          ls -lh build/app/outputs/bundle/release/
-      - name: SAVE KEY
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-key-jks
-          path: release-key.jks
+          flutter build appbundle --release --build-name=1.0.0 --build-number=16
       - name: Upload AAB to Play Internal
         uses: r0adkll/upload-google-play@v1
         with:
