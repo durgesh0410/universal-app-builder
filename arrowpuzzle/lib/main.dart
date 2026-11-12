@@ -29,10 +29,10 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
   Random rand = Random();
   final AudioPlayer _player = AudioPlayer();
 
-  // ADS
+  // ADS - TUMHARA ASLI ID LAG GAYA
   BannerAd? _bannerAd; bool _isBannerLoaded = false; InterstitialAd? _interstitialAd;
-  final String bannerId = 'ca-app-pub-3940256099942544/6300978111';
-  final String interstitialId = 'ca-app-pub-3940256099942544/1033173712';
+  final String bannerId = 'ca-app-pub-8490034567216022/7286823332';
+  final String interstitialId = 'ca-app-pub-8490034567216022/2030627224';
 
   @override
   void initState() { super.initState(); _newLevel(); _loadBanner(); _loadInterstitial(); }
@@ -82,14 +82,12 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     setState(() {});
   }
 
-  // Arrow nikalne ka logic - agar arrow border ki taraf point kare to bahar nikal jayega
   bool _canExit(int index) {
     int r = index ~/ gridSize, c = index % gridSize, dir = arrows[index];
-    if (dir == 0 && r == 0) return true; // up + top row
-    if (dir == 2 && r == gridSize - 1) return true; // down + bottom
-    if (dir == 3 && c == 0) return true; // left + left col
-    if (dir == 1 && c == gridSize - 1) return true; // right + right col
-    // beech wale - agar uske aage wala already nikal gaya to bhi nikal sakta hai
+    if (dir == 0 && r == 0) return true;
+    if (dir == 2 && r == gridSize - 1) return true;
+    if (dir == 3 && c == 0) return true;
+    if (dir == 1 && c == gridSize - 1) return true;
     if (dir == 0) { for (int rr = r - 1; rr >= 0; rr--) if (!exited[rr * gridSize + c]) return false; return true; }
     if (dir == 2) { for (int rr = r + 1; rr < gridSize; rr++) if (!exited[rr * gridSize + c]) return false; return true; }
     if (dir == 3) { for (int cc = c - 1; cc >= 0; cc--) if (!exited[r * gridSize + cc]) return false; return true; }
@@ -101,8 +99,6 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
     if (isWon || exited[index]) return;
     await _playSound('rotate');
     setState(() { arrows[index] = (arrows[index] + 1) % 4; moves++; });
-
-    // check exit after rotate
     await Future.delayed(Duration(milliseconds: 150));
     _checkExits();
       return;
@@ -120,7 +116,6 @@ class _ArrowGameState extends State<ArrowGame> with TickerProviderStateMixin {
       }
     }
     if (anyExit) {
-      // dobara check karo chain reaction ke liye
       await Future.delayed(Duration(milliseconds: 200));
       _checkExits();
       return;
