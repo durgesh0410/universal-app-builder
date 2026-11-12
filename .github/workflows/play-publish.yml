@@ -7,6 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -18,10 +22,17 @@ jobs:
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
-          sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
+          # dono file ka naam handle karo - kts ho ya gradle
+          ls android/app/
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
+            sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
+          else
+            sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
+            sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
+          fi
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=6
+          flutter build appbundle --release --build-name=1.0.0 --build-number=7
       - name: Upload AAB to Internal
         uses: r0adkll/upload-google-play@v1
         with:
