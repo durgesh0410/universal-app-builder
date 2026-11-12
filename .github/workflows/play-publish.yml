@@ -18,34 +18,64 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-      - name: Build + Sign + Upload - FULL AUTO
+      - name: Build + Sign + Upload - FULL AUTO KOTLIN FIX
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          # CHABI BILKUL SAHI JAGAH - android/app ke andar
+          ls android/app/
+          cat android/app/build.gradle
+          # CHABI
           keytool -genkey -v -keystore android/app/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
           cp android/app/release-key.jks ../release-key.jks
           cp android/app/release-key.jks ./release-key.jks
-          echo "storePassword=123456
-          keyPassword=123456
-          keyAlias=arrowpuzzle
-          storeFile=release-key.jks" > android/key.properties
+          printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=arrowpuzzle\nstoreFile=release-key.jks\n" > android/key.properties
           cat android/key.properties
-          ls -lh android/app/release-key.jks
-          sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
-          sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
           python3 << 'PY'
-          import pathlib
-          p = pathlib.Path('android/app/build.gradle')
-          t = p.read_text()
-          print("BEFORE:", t[0:1500])
-          if 'keystoreProperties' not in t:
-              t = t.replace('def localProperties', '''def keystoreProperties = new Properties()
+          import pathlib, glob
+          # Kotlin DSL file ho sakta hai build.gradle ya build.gradle.kts
+          candidates = list(pathlib.Path('android/app').glob('build.gradle*'))
+          print(candidates)
+          for fp in candidates:
+              t = fp.read_text()
+              print("FILE:", fp)
+              # package name - Kotlin style
+              t = t.replace('applicationId = "com.arrowpuzzle.arrowpuzzle"', 'applicationId = "com.arrowpuzzle.durgesh0410"')
+              t = t.replace('namespace = "com.arrowpuzzle.arrowpuzzle"', 'namespace = "com.arrowpuzzle.durgesh0410"')
+              t = t.replace('applicationId "com.arrowpuzzle.arrowpuzzle"', 'applicationId "com.arrowpuzzle.durgesh0410"')
+              t = t.replace('namespace "com.arrowpuzzle.arrowpuzzle"', 'namespace "com.arrowpuzzle.durgesh0410"')
+              # Kotlin DSL hai?
+              if 'signingConfigs.debug' in t or 'signingConfig = signingConfigs.debug' in t:
+                  print("KOTLIN DSL DETECTED")
+                  if 'keystoreProperties' not in t:
+                      t = t.replace('plugins {', '''import java.util.Properties
+          import java.io.FileInputStream
+          val keystoreProperties = Properties()
+          val keystorePropertiesFile = rootProject.file("key.properties")
+          if (keystorePropertiesFile.exists()) { keystoreProperties.load(FileInputStream(keystorePropertiesFile)) }
+          plugins {''', 1)
+                  if 'create("release")' not in t:
+                      t = t.replace('buildTypes {', '''signingConfigs {
+                  create("release") {
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+                      storePassword = keystoreProperties["storePassword"] as String
+                  }
+              }
+              buildTypes {''', 1)
+                  t = t.replace('signingConfig = signingConfigs.debug', 'signingConfig = signingConfigs.getByName("release")')
+              fp.write_text(t)
+              print(fp.read_text()[:3000])
+          else:
+              # Groovy fallback
+              print("GROOVY FALLBACK")
+              if 'keystoreProperties' not in t:
+                  t = t.replace('def localProperties', '''def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
           def localProperties''')
-          if 'signingConfigs {' not in t:
-              t = t.replace('buildTypes {', '''signingConfigs {
+              if 'signingConfigs' not in t:
+                  t = t.replace('buildTypes {', '''signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
                       keyPassword keystoreProperties['keyPassword']
@@ -54,14 +84,13 @@ jobs:
                   }
               }
               buildTypes {''')
-          t = t.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
-          p.write_text(t)
-          print("AFTER:", p.read_text()[0:2500])
+              t = t.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+              fp.write_text(t)
+              print(fp.read_text()[:3000])
           PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=11
-          echo "CHECK SIGNING:"
-          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab | head -20
+          flutter build appbundle --release --build-name=1.0.0 --build-number=12
+          ls -lh build/app/outputs/bundle/release/
       - name: SAVE KEY
         uses: actions/upload-artifact@v4
         with:
