@@ -1,4 +1,4 @@
-name: Publish Arrow Puzzle ONE SHOT
+name: Publish Arrow Puzzle FINAL
 on:
   push:
     branches: [ main ]
@@ -18,12 +18,17 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-      - name: Build AAB
+      - name: Build + Sign + Upload - FULL AUTO
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          # dono file ka naam handle karo - kts ho ya gradle
-          ls android/app/
+          # 1. CHABI AUTO BANAO - tujhe kuch nahi karna
+          keytool -genkey -v -keystore ../release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
+          echo "storePassword=123456
+          keyPassword=123456
+          keyAlias=arrowpuzzle
+          storeFile=../release-key.jks" > android/key.properties
+          # package name fix
           if [ -f android/app/build.gradle.kts ]; then
             sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
             sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
@@ -31,9 +36,33 @@ jobs:
             sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
             sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
           fi
+          # signing jod do
+          if [ -f android/app/build.gradle ]; then
+            python3 -c "
+          import pathlib
+          p = pathlib.Path('android/app/build.gradle')
+          t = p.read_text()
+          if 'key.properties' not in t:
+              t = t.replace('android {', '''def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file(\"key.properties\")
+          if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
+          android {''')
+              t = t.replace('buildTypes {', '''signingConfigs { release { keyAlias keystoreProperties['keyAlias']; keyPassword keystoreProperties['keyPassword']; storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null; storePassword keystoreProperties['storePassword'] } }
+          buildTypes {''')
+              t = t.replace('release {', 'release { signingConfig signingConfigs.release')
+              p.write_text(t)
+          print('signing patched')
+          "
+          fi
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=7
-      - name: Upload AAB to Internal
+          flutter build appbundle --release --build-name=1.0.0 --build-number=9
+          ls -lh build/app/outputs/bundle/release/
+      - name: SAVE KEY - download kar lena
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-key-jks
+          path: release-key.jks
+      - name: Upload AAB to Play Internal
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_KEY_JSON }}
@@ -46,4 +75,4 @@ jobs:
           cd arrowpuzzle
           echo "${{ secrets.PLAY_KEY_JSON }}" > play-key.json
           gem install fastlane -N
-          fastlane supply --json_key play-key.json --package_name com.arrowpuzzle.durgesh0410 --track internal --skip_upload_aab --skip_upload_apk --skip_upload_metadata false --skip_upload_images false --skip_upload_screenshots false --metadata_path fastlane/metadata/android --aab build/app/outputs/bundle/release/app-release.aab || echo "listing done"
+          fastlane supply --json_key play-key.json --package_name com.arrowpuzzle.durgesh0410 --track internal --skip_upload_aab --skip_upload_apk --aab build/app/outputs/bundle/release/app-release.aab --metadata_path fastlane/metadata/android --skip_upload_metadata false --skip_upload_images false --skip_upload_screenshots false || echo "listing done"
