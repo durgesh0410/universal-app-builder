@@ -22,42 +22,47 @@ jobs:
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          # 1. CHABI AUTO BANAO - tujhe kuch nahi karna
-          keytool -genkey -v -keystore ../release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
+          # CHABI - GitHub khud banayega, tujhe kuch nahi karna
+          keytool -genkey -v -keystore android/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
+          cp android/release-key.jks ../release-key.jks
           echo "storePassword=123456
           keyPassword=123456
           keyAlias=arrowpuzzle
-          storeFile=../release-key.jks" > android/key.properties
-          # package name fix
-          if [ -f android/app/build.gradle.kts ]; then
-            sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
-            sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
-          else
-            sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
-            sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
-          fi
-          # signing jod do
-          if [ -f android/app/build.gradle ]; then
-            python3 -c "
+          storeFile=release-key.jks" > android/key.properties
+          # package name
+          sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
+          sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
+          # SAHI SIGNING PATCH - Flutter wala standard tarika
+          python3 << 'PY'
           import pathlib
           p = pathlib.Path('android/app/build.gradle')
           t = p.read_text()
-          if 'key.properties' not in t:
-              t = t.replace('android {', '''def keystoreProperties = new Properties()
-          def keystorePropertiesFile = rootProject.file(\"key.properties\")
+          # 1. key.properties load karo upar
+          if 'keystoreProperties' not in t:
+              t = t.replace('def localProperties', '''def keystoreProperties = new Properties()
+          def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
-          android {''')
-              t = t.replace('buildTypes {', '''signingConfigs { release { keyAlias keystoreProperties['keyAlias']; keyPassword keystoreProperties['keyPassword']; storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null; storePassword keystoreProperties['storePassword'] } }
-          buildTypes {''')
-              t = t.replace('release {', 'release { signingConfig signingConfigs.release')
-              p.write_text(t)
-          print('signing patched')
-          "
-          fi
+          def localProperties''')
+          # 2. signingConfigs block add karo
+          if 'signingConfigs' not in t:
+              t = t.replace('buildTypes {', '''signingConfigs {
+                  release {
+                      keyAlias keystoreProperties['keyAlias']
+                      keyPassword keystoreProperties['keyPassword']
+                      storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                      storePassword keystoreProperties['storePassword']
+                  }
+              }
+              buildTypes {''')
+          # 3. debug se release kar do
+          t = t.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
+          p.write_text(t)
+          print(p.read_text()[:2000])
+          PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=9
+          flutter build appbundle --release --build-name=1.0.0 --build-number=10
           ls -lh build/app/outputs/bundle/release/
-      - name: SAVE KEY - download kar lena
+      - name: SAVE KEY
         uses: actions/upload-artifact@v4
         with:
           name: release-key-jks
