@@ -1,4 +1,4 @@
-name: Publish Arrow Puzzle to Play
+name: Publish Arrow Puzzle FULL AUTO
 on:
   push:
     branches: [ main ]
@@ -11,6 +11,11 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Setup Ruby for Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
       - name: Build AAB
         run: |
           cd arrowpuzzle
@@ -18,12 +23,10 @@ jobs:
           sed -i 's/applicationId = "com.arrowpuzzle.arrowpuzzle"/applicationId = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
           sed -i 's/namespace = "com.arrowpuzzle.arrowpuzzle"/namespace = "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle.kts
           flutter pub get
-          flutter build appbundle --release
-      - name: Upload to Play Store
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_KEY_JSON }}
-          packageName: com.arrowpuzzle.durgesh0410
-          releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
-          track: internal
-          status: completed
+          flutter build appbundle --release --build-name=1.0.0 --build-number=2
+          echo "${{ secrets.PLAY_KEY_JSON }}" > fastlane/play-key.json
+          gem install fastlane
+      - name: Upload FULL - AAB + Screenshots + Listing to Internal
+        run: |
+          cd arrowpuzzle
+          fastlane android internal
