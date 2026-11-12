@@ -22,29 +22,29 @@ jobs:
         run: |
           cd arrowpuzzle
           flutter create --org com.arrowpuzzle --project-name arrowpuzzle .
-          # CHABI - GitHub khud banayega, tujhe kuch nahi karna
-          keytool -genkey -v -keystore android/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
-          cp android/release-key.jks ../release-key.jks
+          # CHABI BILKUL SAHI JAGAH - android/app ke andar
+          keytool -genkey -v -keystore android/app/release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias arrowpuzzle -storepass 123456 -keypass 123456 -dname "CN=Durgesh, OU=ArrowPuzzle, O=Durgesh, L=Dindori, ST=MP, C=IN"
+          cp android/app/release-key.jks ../release-key.jks
+          cp android/app/release-key.jks ./release-key.jks
           echo "storePassword=123456
           keyPassword=123456
           keyAlias=arrowpuzzle
           storeFile=release-key.jks" > android/key.properties
-          # package name
+          cat android/key.properties
+          ls -lh android/app/release-key.jks
           sed -i 's/applicationId "com.arrowpuzzle.arrowpuzzle"/applicationId "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
           sed -i 's/namespace "com.arrowpuzzle.arrowpuzzle"/namespace "com.arrowpuzzle.durgesh0410"/' android/app/build.gradle
-          # SAHI SIGNING PATCH - Flutter wala standard tarika
           python3 << 'PY'
           import pathlib
           p = pathlib.Path('android/app/build.gradle')
           t = p.read_text()
-          # 1. key.properties load karo upar
+          print("BEFORE:", t[0:1500])
           if 'keystoreProperties' not in t:
               t = t.replace('def localProperties', '''def keystoreProperties = new Properties()
           def keystorePropertiesFile = rootProject.file('key.properties')
           if (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }
           def localProperties''')
-          # 2. signingConfigs block add karo
-          if 'signingConfigs' not in t:
+          if 'signingConfigs {' not in t:
               t = t.replace('buildTypes {', '''signingConfigs {
                   release {
                       keyAlias keystoreProperties['keyAlias']
@@ -54,14 +54,14 @@ jobs:
                   }
               }
               buildTypes {''')
-          # 3. debug se release kar do
           t = t.replace('signingConfig signingConfigs.debug', 'signingConfig signingConfigs.release')
           p.write_text(t)
-          print(p.read_text()[:2000])
+          print("AFTER:", p.read_text()[0:2500])
           PY
           flutter pub get
-          flutter build appbundle --release --build-name=1.0.0 --build-number=10
-          ls -lh build/app/outputs/bundle/release/
+          flutter build appbundle --release --build-name=1.0.0 --build-number=11
+          echo "CHECK SIGNING:"
+          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab | head -20
       - name: SAVE KEY
         uses: actions/upload-artifact@v4
         with:
@@ -75,9 +75,3 @@ jobs:
           releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
-      - name: Upload Screenshots + Listing
-        run: |
-          cd arrowpuzzle
-          echo "${{ secrets.PLAY_KEY_JSON }}" > play-key.json
-          gem install fastlane -N
-          fastlane supply --json_key play-key.json --package_name com.arrowpuzzle.durgesh0410 --track internal --skip_upload_aab --skip_upload_apk --aab build/app/outputs/bundle/release/app-release.aab --metadata_path fastlane/metadata/android --skip_upload_metadata false --skip_upload_images false --skip_upload_screenshots false || echo "listing done"
