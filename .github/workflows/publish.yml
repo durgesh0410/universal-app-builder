@@ -12,23 +12,41 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-      - name: Build AAB
+      - name: Fix and Build
         run: |
+          ls -R | head -n 100
           JKS_SRC=$(find . -name "release-key.jks" | head -1)
+          echo "JKS: $JKS_SRC"
           mkdir -p arrowpuzzle/android/app
           cp "$JKS_SRC" arrowpuzzle/android/app/release-key.jks
           cd arrowpuzzle
+          ls -la android/app/
+          # 1. SDK fix - dono file ke liye
+          sed -i 's/compileSdk 34/compileSdk 35/g' android/app/build.gradle 2>/dev/null || true
+          sed -i 's/compileSdk 34/compileSdk 35/g' android/app/build.gradle.kts 2>/dev/null || true
+          sed -i 's/compileSdk = 34/compileSdk = 35/g' android/app/build.gradle.kts 2>/dev/null || true
+          # 2. V1 embedding fix - sabse important
+          cat android/app/src/main/AndroidManifest.xml
+          # Manifest me V1 wala meta hatao
+          sed -i '/flutterEmbedding/d' android/app/src/main/AndroidManifest.xml || true
+          # MainActivity fix
+          find android -name "MainActivity*"
+          cat android/app/src/main/kotlin/*/MainActivity.kt 2>/dev/null || cat android/app/src/main/java/*/MainActivity.java 2>/dev/null || echo "MainActivity nahi mila"
+          # Flutter create se repair - V2 embedding laga do
+          flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 . --overwrite || true
+          # Phir se chabi aur SDK lagao kyunki create ne overwrite kiya
+          cp android/app/release-key.jks android/app/release-key.jks 2>/dev/null || cp ../release-key.jks android/app/release-key.jks 2>/dev/null || cp ../*/release-key.jks android/app/release-key.jks 2>/dev/null || echo "jks copy fail"
+          JKS2=$(find .. -name "release-key.jks" | head -1)
+          cp "$JKS2" android/app/release-key.jks
           ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d, -f1)
           printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=$ALIAS\nstoreFile=release-key.jks\n" > android/key.properties
-          sed -i 's/compileSdk 34/compileSdk 35/' android/app/build.gradle || true
+          cat android/key.properties
           flutter build appbundle --release
-          cd ..
-          echo "${{ secrets.PLAY_JSON }}" > play.json
-      - name: Upload All to Play Console
-        run: |
-          gem install fastlane -N
-          fastlane android deploy
+      - name: Upload to Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_JSON }}
+          packageName: com.arrowpuzzle.durgesh0410
+          releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
