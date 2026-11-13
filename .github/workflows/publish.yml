@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       
@@ -31,31 +29,15 @@ jobs:
           cd arrowpuzzle
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle . --overwrite
           
+          # Direct sed replacement for minSdk 24
+          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle
+          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle
           echo "flutter.minSdkVersion=24" >> android/local.properties
           echo "flutter.targetSdkVersion=34" >> android/local.properties
           
-          find . -name "build.gradle" -o -name "build.gradle.kts" | while read file; do
-            sed -i 's/flutter.minSdkVersion/24/g' "$file"
-            sed -i 's/minSdkVersion 21/minSdkVersion 24/g' "$file"
-            sed -i 's/minSdk 21/minSdk 24/g' "$file"
-            sed -i 's/minSdkVersion = 21/minSdkVersion = 24/g' "$file"
-            sed -i 's/minSdk = 21/minSdk = 24/g' "$file"
-          done
-          
+          # Copy keystore and build
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           cp "$JKS_SRC" android/app/release-key.jks
-          ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d',' -f1)
-          
-          cat << 'KEYEOF' > android/key.properties
-storePassword=123456
-keyPassword=123456
-keyAlias=$ALIAS
-storeFile=release-key.jks
-KEYEOF
-          sed -i "s/\$ALIAS/$ALIAS/g" android/key.properties
-          
-          sed -i '/buildTypes {/i \    signingConfigs {\n        release {\n            def keystoreProperties = new Properties()\n            def keystorePropertiesFile = rootProject.file("key.properties")\n            if (keystorePropertiesFile.exists()) {\n                keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n            }\n            keyAlias keystoreProperties["keyAlias"]\n            keyPassword keystoreProperties["keyPassword"]\n            storeFile file(keystoreProperties["storeFile"])\n            storePassword keystoreProperties["storePassword"]\n        }\n    }\n' android/app/build.gradle
-          sed -i 's/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g' android/app/build.gradle
           
           flutter build appbundle --release
 
@@ -67,4 +49,4 @@ KEYEOF
           echo "$PLAY_JSON_CONTENT" > /tmp/play.json
           gem install fastlane -N
           cd arrowpuzzle
-          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410 --track internal --aab build/app/outputs/bundle/release/app-release.aab --metadata_path fastlane/metadata/android --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
