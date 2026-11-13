@@ -12,13 +12,24 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
-      - run: |
+      - name: Fix SDK and Key
+        run: |
           cd arrowpuzzle
           cp ../release-key.jks android/app/release-key.jks
+          # Chabi ka asli naam kya hai - khud pata karo
+          keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry
+          ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d, -f1)
+          echo "ALIAS MILA: $ALIAS"
           echo "storePassword=123456
           keyPassword=123456
-          keyAlias=upload
+          keyAlias=$ALIAS
           storeFile=release-key.jks" > android/key.properties
+          cat android/key.properties
+          # SDK 35 wala fix
+          sed -i 's/compileSdk 34/compileSdk 35/' android/app/build.gradle
+          sed -i 's/compileSdk = 34/compileSdk = 35/' android/app/build.gradle
+          sed -i 's/targetSdk 34/targetSdk 35/' android/app/build.gradle
+          grep -n "compileSdk" android/app/build.gradle
           flutter build appbundle --release
       - uses: actions/upload-artifact@v4
         with:
