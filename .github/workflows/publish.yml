@@ -1,46 +1,69 @@
 name: Publish to Play + Release
-on: [push]
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+          
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
-      - uses: ruby/setup-ruby@v1
+          cache: true
+          
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-      - name: Build AAB
+          
+      - name: Build AAB and Fix minSdk
         run: |
           cd arrowpuzzle
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle . --overwrite
-          JKS_SRC=$(find .. -name "release-key.jks" | head -1)
-          cp "$JKS_SRC" android/app/release-key.jks
-          ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d, -f1)
-          printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=$ALIAS\nstoreFile=release-key.jks\n" > android/key.properties
-          flutter pub get
+          
+          # Force update minSdkVersion to 24 in all build.gradle files
+          find . -name "build.gradle" -o -name "build.gradle.kts" | while read file; do
+            sed -i 's/minSdk 21/minSdk 24/g' "$file"
+            sed -i 's/minSdkVersion 21/minSdkVersion 24/g' "$file"
+            sed -i 's/minSdk = 21/minSdk = 24/g' "$file"
+            sed -i 's/minSdkVersion = 21/minSdkVersion = 24/g' "$file"
+          end
+          
+          echo "flutter.minSdkVersion=24" >> android/local.properties
+          
+          # Decode JKS and Build
+          echo "$RELEASE_JKS_BASE64" | base64 --decode > android/app/release-key.jks
           flutter build appbundle --release
-          cp build/app/outputs/bundle/release/app-release.aab ../app-release.aab
-      - name: GitHub Release me AAB
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Arrow Puzzle v1.0.${{ github.run_number }}
-          files: app-release.aab
-      - name: Play Console Direct Upload - Screenshot samet
         env:
-          PLAY_JSON_CONTENT: ${{ secrets.PLAY_KEY_JSON }}
+          RELEASE_JKS_BASE64: ${{ secrets.RELEASE_JKS_BASE64 }}
+
+      - name: Deploy to Play Store (Internal Track)
         run: |
-          if [ -z "$PLAY_JSON_CONTENT" ]; then echo "SECRET ABHI BHI KHAALI - naam check karo"; echo "Secrets me PLAY_KEY_JSON hona chahiye"; exit 1; fi
-          echo "$PLAY_JSON_CONTENT" > /tmp/play.json
-          echo "JSON size:"; wc -c /tmp/play.json
+          if [ -z "${{ secrets.PLAY_KEY_JSON }}" ]; then
+            echo "PLAY_KEY_JSON secret is missing!"
+            exit 1
+          fi
+          echo '${{ secrets.PLAY_KEY_JSON }}' > /tmp/play.json
           gem install fastlane -N
           cd arrowpuzzle
-          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410 --track internal --aab build/app/outputs/bundle/release/app-release.aab --metadata_path fastlane/metadata/android --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
+          fastlane supply \
+            --json_key /tmp/play.json \
+            --package_name com.arrowpuzzle.durgesh0410 \
+            --track internal \
+            --aab build/app/outputs/bundle/release/app-release.aab \
+            --skip_upload_apk true \
+            --skip_upload_metadata false \
+            --skip_upload_images true \
+            --skip_upload_screenshots false
