@@ -31,7 +31,7 @@ jobs:
           import pathlib
           fp = pathlib.Path('android/app/build.gradle')
           t = fp.read_text()
-          t = t.replace('com.arrowpuzzle.arrowpuzzle', 'com.arrowpuzzle.durgesh2026')
+          t = t.replace('com.arrowpuzzle.arrowpuzzle', 'com.arrowpuzzle.durgesh0410')
           t = t.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
           if 'keystoreProperties' not in t:
               t = t.replace('android {', "def keystoreProperties = new Properties()\ndef keystorePropertiesFile = rootProject.file('key.properties')\nif (keystorePropertiesFile.exists()) { keystoreProperties.load(new FileInputStream(keystorePropertiesFile)) }\nandroid {", 1)
@@ -51,7 +51,7 @@ jobs:
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_KEY_JSON }}
-          packageName: com.arrowpuzzle.durgesh2026
+          packageName: com.arrowpuzzle.durgesh0410
           releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
           track: internal
           status: completed
