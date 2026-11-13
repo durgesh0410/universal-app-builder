@@ -1,8 +1,10 @@
-name: Publish to Play
+name: Publish to Play + Release
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -12,32 +14,35 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
-      - name: Create Android + Build
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - name: Build AAB
         run: |
           cd arrowpuzzle
-          ls -la
-          cat pubspec.yaml
-          # android folder banao - yahi missing tha!
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle . --overwrite
-          ls -la android/app/
-          # SDK 35 fix
-          sed -i 's/compileSdk 34/compileSdk 35/g' android/app/build.gradle.kts || true
-          sed -i 's/compileSdk = 34/compileSdk = 35/g' android/app/build.gradle.kts || true
-          # chabi lagao
           JKS_SRC=$(find .. -name "release-key.jks" | head -1)
-          echo "JKS: $JKS_SRC"
           cp "$JKS_SRC" android/app/release-key.jks
           ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d, -f1)
-          echo "ALIAS: $ALIAS"
           printf "storePassword=123456\nkeyPassword=123456\nkeyAlias=$ALIAS\nstoreFile=release-key.jks\n" > android/key.properties
-          cat android/key.properties
           flutter pub get
           flutter build appbundle --release
-      - name: Upload to Play
-        uses: r0adkll/upload-google-play@v1
+          ls -lh build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab ../app-release.aab
+      - name: GitHub Release me AAB dalo
+        uses: softprops/action-gh-release@v2
         with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_JSON }}
-          packageName: com.arrowpuzzle.durgesh0410
-          releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
-          track: internal
-          status: completed
+          tag_name: v1.0.${{ github.run_number }}
+          name: Arrow Puzzle v1.0.${{ github.run_number }}
+          files: app-release.aab
+          body: |
+            Arrow Puzzle - Play Store Build
+            - AAB file attached
+            - Direct Play Console me upload kar sakte ho
+      - name: Play Console me Direct Upload - Screenshot + Description samet
+        run: |
+          echo '${{ secrets.PLAY_JSON }}' > /tmp/play.json
+          gem install fastlane -N
+          cd arrowpuzzle
+          ls -R fastlane/
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410 --track internal --aab build/app/outputs/bundle/release/app-release.aab --metadata_path fastlane/metadata/android --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
