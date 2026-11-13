@@ -1,0 +1,33 @@
+name: Publish to Play
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+      - name: Build AAB
+        run: |
+          cd arrowpuzzle
+          cp ../release-key.jks android/app/release-key.jks
+          ALIAS=$(keytool -list -keystore android/app/release-key.jks -storepass 123456 | grep PrivateKeyEntry | cut -d, -f1)
+          echo "storePassword=123456
+          keyPassword=123456
+          keyAlias=$ALIAS
+          storeFile=release-key.jks" > android/key.properties
+          sed -i 's/compileSdk 34/compileSdk 35/' android/app/build.gradle
+          flutter build appbundle --release
+      - name: Upload to Play Internal
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_JSON }}
+          packageName: com.arrowpuzzle.durgesh0410
+          releaseFiles: arrowpuzzle/build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
