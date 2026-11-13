@@ -29,11 +29,10 @@ jobs:
           cd arrowpuzzle
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle . --overwrite
           
-          # Direct sed replacement for minSdk 24
-          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle
-          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle
-          echo "flutter.minSdkVersion=24" >> android/local.properties
-          echo "flutter.targetSdkVersion=34" >> android/local.properties
+          # Replace flutter.minSdkVersion directly with 24 in both .gradle and .gradle.kts
+          sed -i 's/flutter.minSdkVersion/24/g' android/app/build.gradle*
+          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle*
+          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle*
           
           # Copy keystore and build
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
