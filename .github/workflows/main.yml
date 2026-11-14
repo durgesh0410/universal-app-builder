@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Python Lint Bypass & Secrets Injection
+      - name: Build AAB with Python Release Signing
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -45,9 +45,13 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Use Python to patch Kotlin version in settings.gradle
+          # Step 3: Remove old Groovy build.gradle so Gradle MUST use our build.gradle.kts
+          rm -f android/app/build.gradle android/app/build.gradle.kts
+
+          # Step 4: Patch Kotlin version in settings.gradle & write build.gradle.kts via Python
           python3 -c '
-          import re
+          import os, re
+
           try:
               with open("android/settings.gradle", "r") as f:
                   content = f.read()
@@ -57,15 +61,13 @@ jobs:
                   f.write(content)
           except Exception as e:
               print("settings.gradle patch note:", e)
-          '
-
-          # Step 4: Write build.gradle.kts with GitHub secrets AND disable lint completely to avoid JVM crashes
-          python3 -c '
-          import os
 
           alias = os.getenv("KEY_ALIAS", "")
           store_pass = os.getenv("STORE_PASSWORD", "")
           key_pass = os.getenv("KEY_PASSWORD", "")
+
+          if not alias or not store_pass or not key_pass:
+              raise RuntimeError("GitHub Secrets (KEY_ALIAS / PASSWORDS) missing!")
 
           gradle_content = f"""plugins {{
               id("com.android.application")
@@ -107,6 +109,8 @@ jobs:
               buildTypes {{
                   getByName("release") {{
                       signingConfig = signingConfigs.getByName("release")
+                      isMinifyEnabled = false
+                      isShrinkResources = false
                   }}
               }}
 
@@ -123,11 +127,14 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully generated build.gradle.kts with lint checks disabled.")
+          print("Successfully replaced build.gradle with signed build.gradle.kts")
           '
 
-          # Step 5: Run release build cleanly
+          # Step 5: Build Release AAB
           flutter build appbundle --release
+
+          # Step 6: Verify signature BEFORE uploading to Play Store
+          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab | grep -E "CN=|jar verified"
 
       - name: Deploy to Play Store
         env:
