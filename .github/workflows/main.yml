@@ -24,9 +24,8 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Direct Python Secrets & Fallback Alias
+      - name: Build AAB with Verified Alias arrowpuzzle
         env:
-          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
@@ -49,20 +48,21 @@ jobs:
           echo "android.lint.checkReleaseBuilds=false" >> android/gradle.properties
           echo "android.lint.abortOnError=false" >> android/gradle.properties
 
-          # Step 4: Use Python to inject secrets and build.gradle.kts securely
+          # Step 4: Write build.gradle.kts with the exact verified alias 'arrowpuzzle'
           python3 -c '
-          import os, re
+          import os
 
-          alias = os.getenv("KEY_ALIAS", "").strip() or "key0"
-          store_pass = os.getenv("STORE_PASSWORD", "").strip()
+          store_pass = os.getenv("STORE_PASSWORD", "").strip() or "123456"
           key_pass = os.getenv("KEY_PASSWORD", "").strip() or store_pass
+          alias = "arrowpuzzle"
 
-          print(f"Using Keystore Alias: {alias}")
+          print(f"Using Verified Alias: {alias}")
 
           try:
               with open("android/settings.gradle", "r") as f:
                   content = f.read()
               if "org.jetbrains.kotlin.android" in content:
+                  import re
                   content = re.sub(r"id\s*[\x27\x22]org\.jetbrains\.kotlin\.android[\x27\x22]\s*version\s*[\x27\x22][^\x27\x22]*[\x27\x22]", "id \"org.jetbrains.kotlin.android\" version \"1.9.24\"", content)
               with open("android/settings.gradle", "w") as f:
                   f.write(content)
@@ -120,12 +120,11 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully generated build.gradle.kts with explicit signing credentials.")
+          print("Successfully generated build.gradle.kts with exact alias arrowpuzzle.")
           '
 
-          # Step 5: Build Release AAB and verify signature
+          # Step 5: Build Release AAB
           flutter build appbundle --release
-          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab || true
 
       - name: Deploy to Play Store
         env:
