@@ -1,51 +1,37 @@
 name: Publish to Play + Release
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-          
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
-          
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          
+          channel: 'stable'
+      - name: Fix minSdk
+        run: |
+          sed -i 's/minSdk = 21/minSdk = 24/' android/app/build.gradle.kts || true
+          grep -i minSdk android/app/build.gradle.kts
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=app/upload-keystore.jks" >> android/key.properties
       - name: Build AAB
+        run: flutter build appbundle --release
+      - name: Upload to Play
         run: |
-          cd arrowpuzzle
-          flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle . --overwrite
-          
-          # Replace flutter.minSdkVersion directly with 24 in both .gradle and .gradle.kts
-          sed -i 's/flutter.minSdkVersion/24/g' android/app/build.gradle*
-          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle*
-          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle*
-          
-          # Copy keystore and build
-          JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
-          cp "$JKS_SRC" android/app/release-key.jks
-          
-          flutter build appbundle --release
-
-      - name: Deploy to Play Store
-        env:
-          PLAY_JSON_CONTENT: ${{ secrets.PLAY_KEY_JSON }}
-        run: |
-          if [ -z "$PLAY_JSON_CONTENT" ]; then echo "SECRET KHAALI HAI"; exit 1; fi
-          echo "$PLAY_JSON_CONTENT" > /tmp/play.json
-          gem install fastlane -N
-          cd arrowpuzzle
-          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
+          sudo gem install fastlane -N
+          echo "${{ secrets.PLAY_KEY_JSON }}" > /tmp/play.json
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true
