@@ -31,15 +31,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           cd arrowpuzzle
-          flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 . --overwrite
           
-          sed -i 's/flutter.minSdkVersion/24/g' android/app/build.gradle*
-          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle*
-          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle*
-          
+          # Copy keystore into android/app directory
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           cp "$JKS_SRC" android/app/release-key.jks
           
+          # Write clean build.gradle.kts with correct release signing
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
               id("com.android.application")
