@@ -16,54 +16,34 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Debug structure
+      - name: Ensure android exists + fix package
         run: |
-          ls -la
-          echo "--- pubspec ---"
-          cat pubspec.yaml | head -30
-          echo "--- gitignore ---"
-          cat .gitignore || true
-          echo "--- find gradle ---"
-          find . -name "build.gradle*" 2>/dev/null || true
-          find . -name "AndroidManifest.xml" 2>/dev/null || true
-
-      - name: Create android if missing
-        run: |
-          if [ ! -d "android/app" ] && [ ! -d "arrowpuzzle/android/app" ]; then
-            echo "ANDROID MISSING - CREATING..."
-            flutter create . --org com.arrowpuzzle --project-name arrowpuzzle || flutter create . --org com.arrowpuzzle
-            ls -la android/app/
+          if [ ! -d "android/app" ]; then
+            flutter create . --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle
           fi
-          find . -name "build.gradle*" 2>/dev/null
-
-      - name: Fix minSdk
-        run: |
-          GRADLE_FILE=$(find . -name "build.gradle.kts" -o -name "build.gradle" | grep "android/app" | head -1)
-          echo "Found: $GRADLE_FILE"
+          GRADLE_FILE=$(find . -name "build.gradle.kts" | grep "android/app" | head -1)
+          echo "GRADLE: $GRADLE_FILE"
           sed -i 's/minSdk = 21/minSdk = 24/' "$GRADLE_FILE" || true
           sed -i 's/minSdkVersion 21/minSdkVersion 24/' "$GRADLE_FILE" || true
-          sed -i 's/minSdk 21/minSdk 24/' "$GRADLE_FILE" || true
-          grep -i minSdk "$GRADLE_FILE" || cat "$GRADLE_FILE" | head -40
+          sed -i 's/applicationId = ".*"/applicationId = "com.arrowpuzzle.durgesh0410.v1"/' "$GRADLE_FILE" || true
+          sed -i 's/namespace = ".*"/namespace = "com.arrowpuzzle.durgesh0410.v1"/' "$GRADLE_FILE" || true
+          grep -E "minSdk|applicationId|namespace" "$GRADLE_FILE"
 
       - name: Signing
         run: |
-          if [ -d "arrowpuzzle/android/app" ]; then APP_DIR="arrowpuzzle"; else APP_DIR="."; fi
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
+          APP_DIR="."
           echo "${{ secrets.RELEASE_JKS_BASE64 }}" | base64 --decode > $APP_DIR/android/app/upload-keystore.jks
           echo "storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}" > $APP_DIR/android/key.properties
           echo "keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}" >> $APP_DIR/android/key.properties
           echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> $APP_DIR/android/key.properties
           echo "storeFile=upload-keystore.jks" >> $APP_DIR/android/key.properties
           cat $APP_DIR/android/key.properties
-          cat $APP_DIR/android/app/build.gradle.kts 2>/dev/null | head -60 || cat $APP_DIR/android/app/build.gradle | head -60
 
       - name: Build AAB
-        run: |
-          cd $APP_DIR
-          flutter build appbundle --release
+        run: flutter build appbundle --release
 
       - name: Upload to Play
         run: |
           sudo gem install fastlane -N
           echo '${{ secrets.PLAY_KEY_JSON }}' > /tmp/play.json
-          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab $APP_DIR/build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false
