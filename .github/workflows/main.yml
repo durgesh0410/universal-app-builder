@@ -24,9 +24,8 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Global Lint Disable & Python Signing
+      - name: Build AAB with Auto-detected Keystore Alias & Python Signing
         env:
-          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
@@ -45,15 +44,30 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Disable lint globally in android/gradle.properties so NO plugin can run lint
+          # Step 3: Disable lint globally
           echo "android.lint.checkReleaseBuilds=false" >> android/gradle.properties
           echo "android.lint.abortOnError=false" >> android/gradle.properties
 
-          # Step 4: Patch settings.gradle & write build.gradle.kts via Python
-          rm -f android/app/build.gradle android/app/build.gradle.kts
-
+          # Step 4: Use Python to automatically inspect keystore alias and patch build.gradle.kts
           python3 -c '
-          import os, re
+          import os, subprocess, re
+
+          store_pass = os.getenv("STORE_PASSWORD", "")
+
+          # Automatically extract the alias from the keystore using keytool
+          try:
+              cmd = ["keytool", "-list", "-v", "-keystore", "android/app/release-key.jks", "-storepass", store_pass]
+              result = subprocess.run(cmd, captureOutput=True, text=True, check=True)
+              match = re.search(r"Alias name:\s*(.+)", result.stdout)
+              if match:
+                  auto_alias = match.group(1).strip()
+                  print(f"Auto-detected Keystore Alias: {auto_alias}")
+              else:
+                  auto_alias = "key0"
+                  print("Could not find alias name, defaulting to key0")
+          except Exception as e:
+              print(f"Error reading keystore: {e}, defaulting to key0")
+              auto_alias = "key0"
 
           try:
               with open("android/settings.gradle", "r") as f:
@@ -64,10 +78,6 @@ jobs:
                   f.write(content)
           except Exception as e:
               print("settings.gradle patch note:", e)
-
-          alias = os.getenv("KEY_ALIAS", "")
-          store_pass = os.getenv("STORE_PASSWORD", "")
-          key_pass = os.getenv("KEY_PASSWORD", "")
 
           gradle_content = f"""plugins {{
               id("com.android.application")
@@ -101,8 +111,8 @@ jobs:
                   create("release") {{
                       storeFile = file("release-key.jks")
                       storePassword = "{store_pass}"
-                      keyAlias = "{alias}"
-                      keyPassword = "{key_pass}"
+                      keyAlias = "{auto_alias}"
+                      keyPassword = "{store_pass}"
                   }}
               }}
 
@@ -120,7 +130,7 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully generated build.gradle.kts with global lint property override")
+          print("Successfully generated build.gradle.kts with auto-detected alias.")
           '
 
           # Step 5: Build Release AAB
