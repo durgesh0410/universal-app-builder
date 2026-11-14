@@ -32,11 +32,11 @@ jobs:
         run: |
           cd arrowpuzzle
           
-          # Ensure android/app directory exists before copying
-          mkdir -p android/app
+          # Step 1: Generate fresh Android v2 structure first
+          flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 .
           
-          # Find and copy release-key.jks directly into android/app/
-          JKS_SRC=$(find ../ -name "release-key.jks" | head -n 1)
+          # Step 2: Copy keystore AFTER flutter create
+          JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           if [ -f "$JKS_SRC" ]; then
             cp "$JKS_SRC" android/app/release-key.jks
             echo "Keystore copied successfully"
@@ -45,7 +45,8 @@ jobs:
             exit 1
           fi
           
-          # Write signing configuration into build.gradle.kts
+          # Step 3: Remove any old build.gradle and write clean build.gradle.kts AFTER flutter create
+          rm -f android/app/build.gradle android/app/build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
               id("com.android.application")
@@ -76,9 +77,6 @@ jobs:
               }
 
               signingConfigs {
-                  getByName("debug") {
-                      storeFile = file("debug.keystore")
-                  }
                   create("release") {
                       storeFile = file("release-key.jks")
                       storePassword = System.getenv("STORE_PASSWORD")
