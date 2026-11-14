@@ -32,17 +32,20 @@ jobs:
         run: |
           cd arrowpuzzle
           
-          # Find and copy release-key.jks directly into android/app/ where Gradle expects it
+          # Ensure android/app directory exists before copying
+          mkdir -p android/app
+          
+          # Find and copy release-key.jks directly into android/app/
           JKS_SRC=$(find ../ -name "release-key.jks" | head -n 1)
           if [ -f "$JKS_SRC" ]; then
             cp "$JKS_SRC" android/app/release-key.jks
-            echo "Keystore copied successfully from $JKS_SRC"
+            echo "Keystore copied successfully"
           else
             echo "ERROR: release-key.jks not found!"
             exit 1
           fi
           
-          # Write exact signing configuration into build.gradle.kts
+          # Write signing configuration into build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
               id("com.android.application")
