@@ -33,20 +33,9 @@ jobs:
           echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> arrowpuzzle/android/key.properties
           echo "storeFile=upload-keystore.jks" >> arrowpuzzle/android/key.properties
 
-      - name: 5. Fix Kotlin Version, Embedding & Build AAB
+      - name: 5. Build Signed Release AAB
         working-directory: arrowpuzzle
         run: |
-          flutter create . --org com.arrowpuzzle.durgesh0410 --project-name v1
-          
-          # settings.gradle या settings.gradle.kts में कोटलिन वर्शन अपडेट करना
-          if [ -f "android/settings.gradle" ]; then
-            sed -i 's/org.jetbrains.kotlin.android_version = .*/org.jetbrains.kotlin.android_version = "1.9.24"/g' android/settings.gradle
-            sed -i 's/version ".*"/version "1.9.24"/g' android/settings.gradle
-          fi
-          if [ -f "android/settings.gradle.kts" ]; then
-            sed -i 's/kotlin("android") version ".*"/kotlin("android") version "1.9.24"/g' android/settings.gradle.kts
-          fi
-
           flutter pub get
           flutter build appbundle --release
 
