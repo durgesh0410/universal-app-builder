@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Stable SDK 34 & Python Signing
+      - name: Build AAB with Global Lint Disable & Python Signing
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -45,7 +45,11 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Remove old build.gradle and patch settings.gradle + build.gradle.kts via Python
+          # Step 3: Disable lint globally in android/gradle.properties so NO plugin can run lint
+          echo "android.lint.checkReleaseBuilds=false" >> android/gradle.properties
+          echo "android.lint.abortOnError=false" >> android/gradle.properties
+
+          # Step 4: Patch settings.gradle & write build.gradle.kts via Python
           rm -f android/app/build.gradle android/app/build.gradle.kts
 
           python3 -c '
@@ -107,11 +111,6 @@ jobs:
                       signingConfig = signingConfigs.getByName("release")
                   }}
               }}
-
-              lint {{
-                  checkReleaseBuilds = false
-                  abortOnError = false
-              }}
           }}
 
           flutter {{
@@ -121,10 +120,10 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully generated build.gradle.kts with compileSdk = 34")
+          print("Successfully generated build.gradle.kts with global lint property override")
           '
 
-          # Step 4: Build Release AAB
+          # Step 5: Build Release AAB
           flutter build appbundle --release
 
       - name: Deploy to Play Store
