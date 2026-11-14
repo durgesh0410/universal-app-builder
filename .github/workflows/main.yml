@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Robust Python Fix
+      - name: Build AAB with Verified Release Signing
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -35,7 +35,7 @@ jobs:
           # Step 1: Generate fresh Android structure
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 .
           
-          # Step 2: Copy keystore
+          # Step 2: Copy keystore to android/app/release-key.jks
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           if [ -f "$JKS_SRC" ]; then
             cp "$JKS_SRC" android/app/release-key.jks
@@ -45,24 +45,21 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Use Python to safely inject Kotlin version without breaking Android plugins
+          # Step 3: Inject Kotlin version safely in settings.gradle
           python3 -c '
           import re
-
-          # Fix android/settings.gradle to use kotlin version 1.9.24 correctly
           try:
               with open("android/settings.gradle", "r") as f:
                   content = f.read()
-              # Only replace kotlin version safely
               if "org.jetbrains.kotlin.android" in content:
-                  content = re.sub(r"id\s*[\x27\x22]org\.jetbrains\.kotlin\.android[\x27\x22]\s*version\s*[\x27\x22][^\x27\x22]*[\x27\x22]", "id \"org.jetbrains.kotlin.android\" version \"1.9.24\"", content)
+                  content = re.sub(r"id\s*[\x27\x22]org\.jetbrains.kotlin\.android[\x27\x22]\s*version\s*[\x27\x22][^\x27\x22]*[\x27\x22]", "id \"org.jetbrains.kotlin.android\" version \"1.9.24\"", content)
               with open("android/settings.gradle", "w") as f:
                   f.write(content)
           except Exception as e:
               print("settings.gradle patch note:", e)
           '
 
-          # Step 4: Write clean build.gradle.kts with compileSdk = 35 and release signing
+          # Step 4: Write bulletproof build.gradle.kts with mandatory release signing config
           rm -f android/app/build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
@@ -94,7 +91,13 @@ jobs:
               }
 
               signingConfigs {
-                  create("release") {
+                  named("release") {
+                      storeFile = file("release-key.jks")
+                      storePassword = System.getenv("STORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEY_PASSWORD")
+                  }
+                  getByName("debug") {
                       storeFile = file("release-key.jks")
                       storePassword = System.getenv("STORE_PASSWORD")
                       keyAlias = System.getenv("KEY_ALIAS")
@@ -104,6 +107,9 @@ jobs:
 
               buildTypes {
                   getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                  }
+                  getByName("debug") {
                       signingConfig = signingConfigs.getByName("release")
                   }
               }
