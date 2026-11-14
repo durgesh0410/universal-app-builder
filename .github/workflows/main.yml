@@ -1,279 +1,55 @@
-name: Smart Self-Healing Play Publisher
+name: Ultimate Play Store Auto Deploy
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
-  build_and_publish:
+  build_and_deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # Step 1: Checkout Repository
       - name: 1. Checkout Code
         uses: actions/checkout@v4
 
-      # Step 2: Setup Java 17
-      - name: 2. Setup Java 17
+      - name: 2. Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # Step 3: Setup Stable Flutter SDK
-      - name: 3. Setup Flutter 3.24.0
+      - name: 3. Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
-          cache: true
+          channel: 'stable'
 
-      # Step 4: Setup Ruby for Fastlane
-      - name: 4. Setup Ruby 3.2
+      - name: 4. Decode Keystore & Create key.properties
+        run: |
+          mkdir -p arrowpuzzle/android/app
+          echo "${{ secrets.RELEASE_JKS_BASE64 }}" | base64 --decode > arrowpuzzle/android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}" > arrowpuzzle/android/key.properties
+          echo "keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}" >> arrowpuzzle/android/key.properties
+          echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> arrowpuzzle/android/key.properties
+          echo "storeFile=upload-keystore.jks" >> arrowpuzzle/android/key.properties
+
+      - name: 5. Build Signed Release AAB
+        working-directory: arrowpuzzle
+        run: |
+          flutter pub get
+          flutter build appbundle --release
+
+      - name: 6. Set up Ruby & Fastlane
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.1'
 
-      # Steps 5 to 17: Smart Python Auto-Healer & Builder
-      - name: 5-17. Smart Self-Healing Diagnostics, Patching & Signing
-        env:
-          STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          JKS_BASE64: ${{ secrets.RELEASE_JKS_BASE64 }}
+      - name: 7. Install Fastlane & Create JSON Key
         run: |
-          python3 - << 'PYEOF'
-          import os, subprocess, shutil, glob, base64, re
+          gem install fastlane
+          mkdir -p arrowpuzzle/android/fastlane
+          echo '${{ secrets.PLAY_KEY_JSON }}' > arrowpuzzle/android/fastlane/play-store-key.json
 
-          def run_cmd(cmd, cwd=None, ignore_err=False):
-              print(f"Running: {cmd}")
-              res = subprocess.run(cmd, shell=True, cwd=cwd, text=True)
-              if res.returncode != 0 and not ignore_err:
-                  raise RuntimeError(f"Command failed: {cmd}")
-              return res.returncode
-
-          # Step 5: Auto-detect Flutter project root (where pubspec.yaml lives)
-          print("--- STEP 5: Locating Flutter Project Root ---")
-          app_dir = "."
-          if os.path.exists("arrowpuzzle/pubspec.yaml"):
-              app_dir = "arrowpuzzle"
-          elif not os.path.exists("pubspec.yaml"):
-              found = glob.glob("**/pubspec.yaml", recursive=True)
-              if found:
-                  app_dir = os.path.dirname(found[0])
-              else:
-                  raise FileNotFoundError("pubspec.yaml कहीं नहीं मिला!")
-          print(f"Detected APP_DIR: {app_dir}")
-          with open(os.environ["GITHUB_ENV"], "a") as env_f:
-              env_f.write(f"APP_DIR={app_dir}\n")
-
-          # Step 6: Verify dependencies in pubspec.yaml & fetch packages
-          print("--- STEP 6: Fetching Flutter Packages (flutter pub get) ---")
-          run_cmd("flutter pub get", cwd=app_dir)
-
-          # Step 7: Ensure clean Android platform files exist
-          print("--- STEP 7: Checking & Generating Android Structure ---")
-          if not os.path.exists(f"{app_dir}/android/app/src/main/AndroidManifest.xml"):
-              run_cmd("flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 .", cwd=app_dir)
-
-          # Step 8: Locate or Decode Keystore (Self-Healing Key Recovery)
-          print("--- STEP 8: Recovering & Placing Keystore ---")
-          jks_target = f"{app_dir}/android/app/release-key.jks"
-          jks_found = glob.glob("**/release-key.jks", recursive=True)
-          if jks_found:
-              shutil.copy(jks_found[0], jks_target)
-              print(f"Copied existing keystore from {jks_found[0]}")
-          elif os.getenv("JKS_BASE64", "").strip():
-              with open(jks_target, "wb") as jf:
-                  jf.write(base64.b64decode(os.getenv("JKS_BASE64").strip()))
-              print("Decoded keystore from RELEASE_JKS_BASE64 secret")
-          else:
-              raise FileNotFoundError("Keystore (release-key.jks) न रिपॉजिटरी में मिला न सीक्रेट में!")
-
-          # Step 9: Auto-verify Keystore Password & Alias via keytool
-          print("--- STEP 9: Verifying Keystore Credentials ---")
-          store_pass = os.getenv("STORE_PASSWORD", "").strip() or "123456"
-          key_pass = os.getenv("KEY_PASSWORD", "").strip() or store_pass
-          alias = os.getenv("KEY_ALIAS", "").strip() or "arrowpuzzle"
-
-          kt = subprocess.run(
-              ["keytool", "-list", "-v", "-keystore", jks_target, "-storepass", store_pass],
-              capture_output=True, text=True
-          )
-          if kt.returncode == 0:
-              m = re.search(r"Alias name:\s*(.+)", kt.stdout)
-              if m:
-                  detected_alias = m.group(1).strip()
-                  print(f"Keytool verified exact alias: {detected_alias}")
-                  alias = detected_alias
-          else:
-              print("Keytool check warning, proceeding with configured alias:", alias)
-
-          # Step 10: Clean conflicting Gradle scripts
-          print("--- STEP 10: Removing Conflicting Build Files ---")
-          for old_f in [f"{app_dir}/android/app/build.gradle", f"{app_dir}/android/app/build.gradle.kts"]:
-              if os.path.exists(old_f):
-                  os.remove(old_f)
-
-          # Step 11: Enforce Global Gradle Properties (Memory + Lint Suppression)
-          print("--- STEP 11: Patching gradle.properties ---")
-          gp_path = f"{app_dir}/android/gradle.properties"
-          gp_lines = [
-              "org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G",
-              "android.useAndroidX=true",
-              "android.enableJetifier=true",
-              "android.lint.checkReleaseBuilds=false",
-              "android.lint.abortOnError=false"
-          ]
-          with open(gp_path, "w") as gpf:
-              gpf.write("\n".join(gp_lines) + "\n")
-
-          # Step 12: Patch Kotlin Version in settings.gradle / settings.gradle.kts
-          print("--- STEP 12: Standardizing Kotlin Version ---")
-          for sg in [f"{app_dir}/android/settings.gradle", f"{app_dir}/android/settings.gradle.kts"]:
-              if os.path.exists(sg):
-                  with open(sg, "r") as f:
-                      sc = f.read()
-                  sc = re.sub(
-                      r'id\s*[\(\'"\s]+org\.jetbrains\.kotlin\.android[\)\'"\s]+version\s*[\'"][^\'"]+[\'"]',
-                      'id("org.jetbrains.kotlin.android") version "1.9.24"' if sg.endswith(".kts") else 'id "org.jetbrains.kotlin.android" version "1.9.24"',
-                      sc
-                  )
-                  with open(sg, "w") as f:
-                      f.write(sc)
-
-          # Step 13: Inject Root-Level Lint & Subproject Protection in android/build.gradle(.kts)
-          print("--- STEP 13: Disabling Lint Across All Subprojects (webview_flutter fix) ---")
-          root_bg_kts = f"{app_dir}/android/build.gradle.kts"
-          root_bg_groovy = f"{app_dir}/android/build.gradle"
-          if os.path.exists(root_bg_kts):
-              with open(root_bg_kts, "a") as f:
-                  f.write('\nsubprojects {\n    tasks.configureEach {\n        if (name.lowercase().contains("lint")) {\n            enabled = false\n        }\n    }\n}\n')
-          elif os.path.exists(root_bg_groovy):
-              with open(root_bg_groovy, "a") as f:
-                  f.write('\nsubprojects {\n    tasks.configureEach {\n        if (name.toLowerCase().contains("lint")) {\n            enabled = false\n        }\n    }\n}\n')
-
-          # Step 14: Generate Bulletproof app/build.gradle.kts (SDK 34 + Forced Release Signing)
-          print("--- STEP 14: Writing Signed build.gradle.kts ---")
-          app_gradle = f"""plugins {{
-              id("com.android.application")
-              id("kotlin-android")
-              id("dev.flutter.flutter-gradle-plugin")
-          }}
-
-          android {{
-              namespace = "com.arrowpuzzle.durgesh0410.v1"
-              compileSdk = 34
-              ndkVersion = flutter.ndkVersion
-
-              compileOptions {{
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
-              }}
-
-              kotlinOptions {{
-                  jvmTarget = "1.8"
-              }}
-
-              defaultConfig {{
-                  applicationId = "com.arrowpuzzle.durgesh0410.v1"
-                  minSdk = 24
-                  targetSdk = 34
-                  versionCode = flutter.versionCode
-                  versionName = flutter.versionName
-              }}
-
-              signingConfigs {{
-                  create("release") {{
-                      storeFile = file("release-key.jks")
-                      storePassword = "{store_pass}"
-                      keyAlias = "{alias}"
-                      keyPassword = "{key_pass}"
-                  }}
-              }}
-
-              buildTypes {{
-                  getByName("release") {{
-                      signingConfig = signingConfigs.getByName("release")
-                      isMinifyEnabled = false
-                      isShrinkResources = false
-                  }}
-              }}
-
-              lint {{
-                  checkReleaseBuilds = false
-                  abortOnError = false
-              }}
-          }}
-
-          tasks.configureEach {{
-              if (name.lowercase().contains("lint")) {{
-                  enabled = false
-              }}
-          }}
-
-          flutter {{
-              source = "../.."
-          }}
-          """
-          with open(f"{app_dir}/android/app/build.gradle.kts", "w") as f:
-              f.write(app_gradle)
-
-          # Step 15: Ensure Internet & AdMob permissions in AndroidManifest.xml
-          print("--- STEP 15: Verifying AndroidManifest Permissions ---")
-          manifest_path = f"{app_dir}/android/app/src/main/AndroidManifest.xml"
-          if os.path.exists(manifest_path):
-              with open(manifest_path, "r") as mf:
-                  m_content = mf.read()
-              if "android.permission.INTERNET" not in m_content:
-                  m_content = m_content.replace("<application", '<uses-permission android:name="android.permission.INTERNET"/>\n    <application')
-                  with open(manifest_path, "w") as mf:
-                      mf.write(m_content)
-
-          # Step 16: Build Release App Bundle (with automatic retry on transient failure)
-          print("--- STEP 16: Building Signed Release AAB ---")
-          rc = run_cmd("flutter build appbundle --release", cwd=app_dir, ignore_err=True)
-          if rc != 0:
-              print("First build attempt hit a snag. Running flutter pub get & retrying...")
-              run_cmd("flutter pub get", cwd=app_dir)
-              run_cmd("flutter build appbundle --release", cwd=app_dir)
-
-          # Step 17: Verify AAB Existence & Cryptographic Signature Before Upload
-          print("--- STEP 17: Verifying Release AAB Signature ---")
-          aab_path = f"{app_dir}/build/app/outputs/bundle/release/app-release.aab"
-          if not os.path.exists(aab_path):
-              raise FileNotFoundError("app-release.aab नहीं बन पाया!")
-          verify_out = subprocess.run(["jarsigner", "-verify", "-verbose", "-certs", aab_path], capture_output=True, text=True)
-          if "Android Debug" in verify_out.stdout:
-              raise RuntimeError("CRITICAL: बंडल अभी भी Debug Key से साइन हुआ है! अपलोड रोका जा रहा है।")
-          print("AAB Signature Verified Successfully (Production Key Confirmed)!")
-          PYEOF
-
-      # Step 18: Validate Google Play Service Account Secret
-      - name: 18. Validate Play Console Credentials
-        env:
-          PLAY_JSON_CONTENT: ${{ secrets.PLAY_KEY_JSON }}
-        run: |
-          if [ -z "$PLAY_JSON_CONTENT" ]; then
-            echo "ERROR: PLAY_KEY_JSON secret खाली है!"
-            exit 1
-          fi
-          echo "$PLAY_JSON_CONTENT" > /tmp/play.json
-
-      # Step 19: Install Fastlane Supply
-      - name: 19. Install Fastlane Deployment Tool
-        run: gem install fastlane -N
-
-      # Step 20: Deploy Signed AAB to Google Play Internal Track
-      - name: 20. Publish Release AAB to Play Store
-        run: |
-          cd $APP_DIR
-          fastlane supply \
-            --json_key /tmp/play.json \
-            --package_name com.arrowpuzzle.durgesh0410.v1 \
-            --track internal \
-            --aab build/app/outputs/bundle/release/app-release.aab \
-            --skip_upload_apk true \
-            --skip_upload_metadata false \
-            --skip_upload_images true \
-            --skip_upload_screenshots false \
-            --verbose
+      - name: 8. Upload AAB, Metadata & Screenshots to Play Console
+        working-directory: arrowpuzzle/android
+        run: fastlane deploy
