@@ -16,13 +16,17 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Ensure android exists + fix package
+      - name: Fix pubspec name then ensure android
         run: |
+          cat pubspec.yaml | head -5
+          sed -i 's/name: 1_arrow_puzzle/name: arrow_puzzle/' pubspec.yaml || true
+          sed -i 's/name: 1_Arrow_Puzzle/name: arrow_puzzle/' pubspec.yaml || true
+          cat pubspec.yaml | head -5
           if [ ! -d "android/app" ]; then
-            flutter create . --org com.arrowpuzzle.durgesh0410 --project-name arrowpuzzle
+            flutter create . --org com.arrowpuzzle.durgesh0410 --project-name arrow_puzzle
           fi
-          GRADLE_FILE=$(find . -name "build.gradle.kts" | grep "android/app" | head -1)
-          echo "GRADLE: $GRADLE_FILE"
+          ls android/app/
+          GRADLE_FILE="android/app/build.gradle.kts"
           sed -i 's/minSdk = 21/minSdk = 24/' "$GRADLE_FILE" || true
           sed -i 's/minSdkVersion 21/minSdkVersion 24/' "$GRADLE_FILE" || true
           sed -i 's/applicationId = ".*"/applicationId = "com.arrowpuzzle.durgesh0410.v1"/' "$GRADLE_FILE" || true
@@ -31,13 +35,12 @@ jobs:
 
       - name: Signing
         run: |
-          APP_DIR="."
-          echo "${{ secrets.RELEASE_JKS_BASE64 }}" | base64 --decode > $APP_DIR/android/app/upload-keystore.jks
-          echo "storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}" > $APP_DIR/android/key.properties
-          echo "keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}" >> $APP_DIR/android/key.properties
-          echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> $APP_DIR/android/key.properties
-          echo "storeFile=upload-keystore.jks" >> $APP_DIR/android/key.properties
-          cat $APP_DIR/android/key.properties
+          echo "${{ secrets.RELEASE_JKS_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          echo "storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+          cat android/key.properties
 
       - name: Build AAB
         run: flutter build appbundle --release
