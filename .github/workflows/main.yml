@@ -45,8 +45,15 @@ jobs:
             exit 1
           fi
           
-          # Step 3: Write clean build.gradle.kts with compileSdk = 35 and correct release signing
-          rm -f android/app/build.gradle android/app/build.gradle.kts
+          # Step 3: Force Kotlin version 1.9.0 globally in android/build.gradle
+          if [ -f "android/build.gradle" ]; then
+            echo "buildscript { ext.kotlin_version = '1.9.0' }" > android/build.gradle.new
+            cat android/build.gradle >> android/build.gradle.new
+            mv android/build.gradle.new android/build.gradle
+          fi
+
+          # Step 4: Write clean build.gradle.kts with compileSdk = 35 and correct release signing
+          rm -f android/app/build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
               id("com.android.application")
