@@ -25,6 +25,10 @@ jobs:
           ruby-version: '3.2'
           
       - name: Build AAB
+        env:
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           cd arrowpuzzle
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 . --overwrite
@@ -35,6 +39,56 @@ jobs:
           
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           cp "$JKS_SRC" android/app/release-key.jks
+          
+          cat << 'GRADLE_EOF' > android/app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("kotlin-android")
+              id("dev.flutter.flutter-gradle-plugin")
+          }
+
+          android {
+              namespace = "com.arrowpuzzle.durgesh0410.v1"
+              compileSdk = flutter.compileSdkVersion
+              ndkVersion = flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+
+              kotlinOptions {
+                  jvmTarget = JavaVersion.VERSION_1_8.toString()
+              }
+
+              defaultConfig {
+                  applicationId = "com.arrowpuzzle.durgesh0410.v1"
+                  minSdk = 24
+                  targetSdk = flutter.targetSdkVersion
+                  versionCode = flutter.versionCode
+                  versionName = flutter.versionName
+              }
+
+              signingConfigs {
+                  create("release") {
+                      storeFile = file("release-key.jks")
+                      storePassword = System.getenv("STORE_PASSWORD") ?: "123456"
+                      keyAlias = System.getenv("KEY_ALIAS") ?: "arrowpuzzle"
+                      keyPassword = System.getenv("KEY_PASSWORD") ?: "123456"
+                  }
+              }
+
+              buildTypes {
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                  }
+              }
+          }
+
+          flutter {
+              source = "../.."
+          }
+          GRADLE_EOF
           
           flutter build appbundle --release
 
