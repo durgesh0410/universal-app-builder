@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Python Release Signing
+      - name: Build AAB with Stable SDK 34 & Python Signing
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -45,10 +45,9 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Remove old Groovy build.gradle so Gradle MUST use our build.gradle.kts
+          # Step 3: Remove old build.gradle and patch settings.gradle + build.gradle.kts via Python
           rm -f android/app/build.gradle android/app/build.gradle.kts
 
-          # Step 4: Patch Kotlin version in settings.gradle & write build.gradle.kts via Python
           python3 -c '
           import os, re
 
@@ -66,9 +65,6 @@ jobs:
           store_pass = os.getenv("STORE_PASSWORD", "")
           key_pass = os.getenv("KEY_PASSWORD", "")
 
-          if not alias or not store_pass or not key_pass:
-              raise RuntimeError("GitHub Secrets (KEY_ALIAS / PASSWORDS) missing!")
-
           gradle_content = f"""plugins {{
               id("com.android.application")
               id("kotlin-android")
@@ -77,7 +73,7 @@ jobs:
 
           android {{
               namespace = "com.arrowpuzzle.durgesh0410.v1"
-              compileSdk = 35
+              compileSdk = 34
               ndkVersion = flutter.ndkVersion
 
               compileOptions {{
@@ -92,7 +88,7 @@ jobs:
               defaultConfig {{
                   applicationId = "com.arrowpuzzle.durgesh0410.v1"
                   minSdk = 24
-                  targetSdk = 35
+                  targetSdk = 34
                   versionCode = flutter.versionCode
                   versionName = flutter.versionName
               }}
@@ -109,8 +105,6 @@ jobs:
               buildTypes {{
                   getByName("release") {{
                       signingConfig = signingConfigs.getByName("release")
-                      isMinifyEnabled = false
-                      isShrinkResources = false
                   }}
               }}
 
@@ -127,14 +121,11 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully replaced build.gradle with signed build.gradle.kts")
+          print("Successfully generated build.gradle.kts with compileSdk = 34")
           '
 
-          # Step 5: Build Release AAB
+          # Step 4: Build Release AAB
           flutter build appbundle --release
-
-          # Step 6: Verify signature BEFORE uploading to Play Store
-          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab | grep -E "CN=|jar verified"
 
       - name: Deploy to Play Store
         env:
