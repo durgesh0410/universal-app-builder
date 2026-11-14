@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB
+      - name: Build AAB with Python Fix
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -44,15 +44,37 @@ jobs:
             echo "ERROR: release-key.jks not found!"
             exit 1
           fi
-          
-          # Step 3: Force Kotlin version 1.9.0 globally in android/build.gradle
-          if [ -f "android/build.gradle" ]; then
-            echo "buildscript { ext.kotlin_version = '1.9.0' }" > android/build.gradle.new
-            cat android/build.gradle >> android/build.gradle.new
-            mv android/build.gradle.new android/build.gradle
-          fi
 
-          # Step 4: Write clean build.gradle.kts with compileSdk = 35 and correct release signing
+          # Step 3: Use Python to patch Gradle and Kotlin versions perfectly without errors
+          python3 -c '
+          import re
+
+          # Fix android/build.gradle if exists
+          try:
+              with open("android/build.gradle", "r") as f:
+                  content = f.read()
+              if "ext.kotlin_version" not in content:
+                  content = "buildscript { ext.kotlin_version = \"1.9.24\" }\n" + content
+              else:
+                  content = re.sub(r"ext\.kotlin_version\s*=\s*[\x27\x22].*?[\x27\x22]", "ext.kotlin_version = \"1.9.24\"", content)
+              with open("android/build.gradle", "w") as f:
+                  f.write(content)
+          except Exception as e:
+              print("build.gradle not patched:", e)
+
+          # Fix settings.gradle if exists
+          try:
+              with open("android/settings.gradle", "r") as f:
+                  content = f.read()
+              if "org.jetbrains.kotlin.android" in content:
+                  content = re.sub(r"version\s*[\x27\x22].*?[\x27\x22]", "version \"1.9.24\"", content)
+              with open("android/settings.gradle", "w") as f:
+                  f.write(content)
+          except Exception as e:
+              print("settings.gradle not patched:", e)
+          '
+
+          # Step 4: Write clean build.gradle.kts with compileSdk = 35 and release signing
           rm -f android/app/build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
