@@ -24,7 +24,7 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Verified Release Signing
+      - name: Build AAB with Python Secrets Injection
         env:
           KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
@@ -45,81 +45,83 @@ jobs:
             exit 1
           fi
 
-          # Step 3: Inject Kotlin version safely in settings.gradle
+          # Step 3: Use Python to patch Kotlin version in settings.gradle
           python3 -c '
           import re
           try:
               with open("android/settings.gradle", "r") as f:
                   content = f.read()
               if "org.jetbrains.kotlin.android" in content:
-                  content = re.sub(r"id\s*[\x27\x22]org\.jetbrains.kotlin\.android[\x27\x22]\s*version\s*[\x27\x22][^\x27\x22]*[\x27\x22]", "id \"org.jetbrains.kotlin.android\" version \"1.9.24\"", content)
+                  content = re.sub(r"id\s*[\x27\x22]org\.jetbrains\.kotlin\.android[\x27\x22]\s*version\s*[\x27\x22][^\x27\x22]*[\x27\x22]", "id \"org.jetbrains.kotlin.android\" version \"1.9.24\"", content)
               with open("android/settings.gradle", "w") as f:
                   f.write(content)
           except Exception as e:
               print("settings.gradle patch note:", e)
           '
 
-          # Step 4: Write bulletproof build.gradle.kts with mandatory release signing config
-          rm -f android/app/build.gradle.kts
-          cat << 'GRADLE_EOF' > android/app/build.gradle.kts
-          plugins {
+          # Step 4: Write build.gradle.kts using Python-passed environment variables from GitHub Secrets
+          python3 -c '
+          import os
+
+          alias = os.getenv("KEY_ALIAS", "")
+          store_pass = os.getenv("STORE_PASSWORD", "")
+          key_pass = os.getenv("KEY_PASSWORD", "")
+
+          gradle_content = f"""plugins {{
               id("com.android.application")
               id("kotlin-android")
               id("dev.flutter.flutter-gradle-plugin")
-          }
+          }}
 
-          android {
+          android {{
               namespace = "com.arrowpuzzle.durgesh0410.v1"
               compileSdk = 35
               ndkVersion = flutter.ndkVersion
 
-              compileOptions {
+              compileOptions {{
                   sourceCompatibility = JavaVersion.VERSION_1_8
                   targetCompatibility = JavaVersion.VERSION_1_8
-              }
+              }}
 
-              kotlinOptions {
+              kotlinOptions {{
                   jvmTarget = "1.8"
-              }
+              }}
 
-              defaultConfig {
+              defaultConfig {{
                   applicationId = "com.arrowpuzzle.durgesh0410.v1"
                   minSdk = 24
                   targetSdk = 35
                   versionCode = flutter.versionCode
                   versionName = flutter.versionName
-              }
+              }}
 
-              signingConfigs {
-                  named("release") {
+              signingConfigs {{
+                  create("release") {{
                       storeFile = file("release-key.jks")
-                      storePassword = System.getenv("STORE_PASSWORD")
-                      keyAlias = System.getenv("KEY_ALIAS")
-                      keyPassword = System.getenv("KEY_PASSWORD")
-                  }
-                  getByName("debug") {
-                      storeFile = file("release-key.jks")
-                      storePassword = System.getenv("STORE_PASSWORD")
-                      keyAlias = System.getenv("KEY_ALIAS")
-                      keyPassword = System.getenv("KEY_PASSWORD")
-                  }
-              }
+                      storePassword = "{store_pass}"
+                      keyAlias = "{alias}"
+                      keyPassword = "{key_pass}"
+                  }}
+              }}
 
-              buildTypes {
-                  getByName("release") {
+              buildTypes {{
+                  getByName("release") {{
                       signingConfig = signingConfigs.getByName("release")
-                  }
-                  getByName("debug") {
-                      signingConfig = signingConfigs.getByName("release")
-                  }
-              }
-          }
+                  }}
+              }}
+          }}
 
-          flutter {
+          flutter {{
               source = "../.."
-          }
-          GRADLE_EOF
-          
+          }}
+          """
+
+          with open("android/app/build.gradle.kts", "w") as f:
+              f.write(gradle_content)
+          print("Successfully generated build.gradle.kts with GitHub secrets.")
+          '
+
+          # Step 5: Run release build
           flutter build appbundle --release
 
       - name: Deploy to Play Store
