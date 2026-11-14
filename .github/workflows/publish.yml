@@ -15,23 +15,29 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
       - name: Fix minSdk
         run: |
           sed -i 's/minSdk = 21/minSdk = 24/' android/app/build.gradle.kts || true
           grep -i minSdk android/app/build.gradle.kts
-      - name: Decode Keystore
+
+      - name: Signing with your secrets
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
-      - name: Create key.properties
-        run: |
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=app/upload-keystore.jks" >> android/key.properties
+          echo "${{ secrets.RELEASE_JKS_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+          ls -lh android/app/*.jks
+          echo "storePassword=${{ secrets.SIGNING_STORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.SIGNING_KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=upload-keystore.jks" >> android/key.properties
+          cat android/key.properties
+          echo "keystore check:"
+          keytool -list -v -keystore android/app/upload-keystore.jks -storepass "${{ secrets.SIGNING_STORE_PASSWORD }}" | head -20
+
       - name: Build AAB
         run: flutter build appbundle --release
-      - name: Upload to Play
+
+      - name: Upload to Play - com.arrowpuzzle.durgesh0410.v1
         run: |
           sudo gem install fastlane -N
-          echo "${{ secrets.PLAY_KEY_JSON }}" > /tmp/play.json
-          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true
+          echo '${{ secrets.PLAY_KEY_JSON }}' > /tmp/play.json
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false
