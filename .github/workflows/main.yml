@@ -33,9 +33,10 @@ jobs:
           echo "keyAlias=${{ secrets.SIGNING_KEY_ALIAS }}" >> arrowpuzzle/android/key.properties
           echo "storeFile=upload-keystore.jks" >> arrowpuzzle/android/key.properties
 
-      - name: 5. Build Signed Release AAB
+      - name: 5. Fix Android v2 Embedding & Build Release AAB
         working-directory: arrowpuzzle
         run: |
+          flutter create . --org com.arrowpuzzle.durgesh0410 --project-name v1
           flutter pub get
           flutter build appbundle --release
 
