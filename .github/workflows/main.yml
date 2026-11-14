@@ -1,0 +1,49 @@
+name: Publish to Play + Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          
+      - name: Build AAB
+        run: |
+          cd arrowpuzzle
+          flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 . --overwrite
+          
+          sed -i 's/flutter.minSdkVersion/24/g' android/app/build.gradle*
+          sed -i 's/minSdkVersion 21/minSdkVersion 24/g' android/app/build.gradle*
+          sed -i 's/minSdk = 21/minSdk = 24/g' android/app/build.gradle*
+          
+          JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
+          cp "$JKS_SRC" android/app/release-key.jks
+          
+          flutter build appbundle --release
+
+      - name: Deploy to Play Store
+        env:
+          PLAY_JSON_CONTENT: ${{ secrets.PLAY_KEY_JSON }}
+        run: |
+          if [ -z "$PLAY_JSON_CONTENT" ]; then echo "SECRET KHAALI HAI"; exit 1; fi
+          echo "$PLAY_JSON_CONTENT" > /tmp/play.json
+          gem install fastlane -N
+          cd arrowpuzzle
+          fastlane supply --json_key /tmp/play.json --package_name com.arrowpuzzle.durgesh0410.v1 --track internal --aab build/app/outputs/bundle/release/app-release.aab --skip_upload_apk true --skip_upload_metadata false --skip_upload_images true --skip_upload_screenshots false --verbose
