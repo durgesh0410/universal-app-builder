@@ -32,10 +32,10 @@ jobs:
         run: |
           cd arrowpuzzle
           
-          # Step 1: Generate fresh Android v2 structure first
+          # Step 1: Generate fresh Android structure
           flutter create --platforms=android --org com.arrowpuzzle.durgesh0410 --project-name v1 .
           
-          # Step 2: Copy keystore AFTER flutter create
+          # Step 2: Copy keystore
           JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
           if [ -f "$JKS_SRC" ]; then
             cp "$JKS_SRC" android/app/release-key.jks
@@ -45,7 +45,13 @@ jobs:
             exit 1
           fi
           
-          # Step 3: Remove any old build.gradle and write clean build.gradle.kts AFTER flutter create
+          # Step 3: Upgrade Kotlin version in root build.gradle if it exists
+          if [ -f "android/build.gradle" ]; then
+            sed -i 's/1\.7\.[0-9]/1.9.0/g' android/build.gradle
+            sed -i 's/1\.8\.[0-9]/1.9.0/g' android/build.gradle
+          fi
+
+          # Step 4: Write clean build.gradle.kts with Kotlin 1.9 compatibility & release signing
           rm -f android/app/build.gradle android/app/build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
@@ -65,7 +71,7 @@ jobs:
               }
 
               kotlinOptions {
-                  jvmTarget = JavaVersion.VERSION_1_8.toString()
+                  jvmTarget = "1.8"
               }
 
               defaultConfig {
