@@ -24,8 +24,9 @@ jobs:
         with:
           ruby-version: '3.2'
           
-      - name: Build AAB with Auto-detected Keystore Alias & Python Signing
+      - name: Build AAB with Direct Python Secrets & Fallback Alias
         env:
+          KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
@@ -48,26 +49,15 @@ jobs:
           echo "android.lint.checkReleaseBuilds=false" >> android/gradle.properties
           echo "android.lint.abortOnError=false" >> android/gradle.properties
 
-          # Step 4: Use Python to automatically inspect keystore alias and patch build.gradle.kts
+          # Step 4: Use Python to inject secrets and build.gradle.kts securely
           python3 -c '
-          import os, subprocess, re
+          import os, re
 
-          store_pass = os.getenv("STORE_PASSWORD", "")
+          alias = os.getenv("KEY_ALIAS", "").strip() or "key0"
+          store_pass = os.getenv("STORE_PASSWORD", "").strip()
+          key_pass = os.getenv("KEY_PASSWORD", "").strip() or store_pass
 
-          # Automatically extract the alias from the keystore using keytool
-          try:
-              cmd = ["keytool", "-list", "-v", "-keystore", "android/app/release-key.jks", "-storepass", store_pass]
-              result = subprocess.run(cmd, captureOutput=True, text=True, check=True)
-              match = re.search(r"Alias name:\s*(.+)", result.stdout)
-              if match:
-                  auto_alias = match.group(1).strip()
-                  print(f"Auto-detected Keystore Alias: {auto_alias}")
-              else:
-                  auto_alias = "key0"
-                  print("Could not find alias name, defaulting to key0")
-          except Exception as e:
-              print(f"Error reading keystore: {e}, defaulting to key0")
-              auto_alias = "key0"
+          print(f"Using Keystore Alias: {alias}")
 
           try:
               with open("android/settings.gradle", "r") as f:
@@ -111,8 +101,8 @@ jobs:
                   create("release") {{
                       storeFile = file("release-key.jks")
                       storePassword = "{store_pass}"
-                      keyAlias = "{auto_alias}"
-                      keyPassword = "{store_pass}"
+                      keyAlias = "{alias}"
+                      keyPassword = "{key_pass}"
                   }}
               }}
 
@@ -130,11 +120,12 @@ jobs:
 
           with open("android/app/build.gradle.kts", "w") as f:
               f.write(gradle_content)
-          print("Successfully generated build.gradle.kts with auto-detected alias.")
+          print("Successfully generated build.gradle.kts with explicit signing credentials.")
           '
 
-          # Step 5: Build Release AAB
+          # Step 5: Build Release AAB and verify signature
           flutter build appbundle --release
+          jarsigner -verify -verbose -certs build/app/outputs/bundle/release/app-release.aab || true
 
       - name: Deploy to Play Store
         env:
