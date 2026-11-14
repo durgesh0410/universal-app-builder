@@ -32,11 +32,17 @@ jobs:
         run: |
           cd arrowpuzzle
           
-          # Copy keystore into android/app directory
-          JKS_SRC=$(find .. -name "release-key.jks" | head -n 1)
-          cp "$JKS_SRC" android/app/release-key.jks
+          # Find and copy release-key.jks directly into android/app/ where Gradle expects it
+          JKS_SRC=$(find ../ -name "release-key.jks" | head -n 1)
+          if [ -f "$JKS_SRC" ]; then
+            cp "$JKS_SRC" android/app/release-key.jks
+            echo "Keystore copied successfully from $JKS_SRC"
+          else
+            echo "ERROR: release-key.jks not found!"
+            exit 1
+          fi
           
-          # Write clean build.gradle.kts with correct release signing
+          # Write exact signing configuration into build.gradle.kts
           cat << 'GRADLE_EOF' > android/app/build.gradle.kts
           plugins {
               id("com.android.application")
@@ -67,11 +73,14 @@ jobs:
               }
 
               signingConfigs {
+                  getByName("debug") {
+                      storeFile = file("debug.keystore")
+                  }
                   create("release") {
                       storeFile = file("release-key.jks")
-                      storePassword = System.getenv("STORE_PASSWORD") ?: "123456"
-                      keyAlias = System.getenv("KEY_ALIAS") ?: "arrowpuzzle"
-                      keyPassword = System.getenv("KEY_PASSWORD") ?: "123456"
+                      storePassword = System.getenv("STORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEY_PASSWORD")
                   }
               }
 
